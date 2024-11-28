@@ -1,4 +1,12 @@
-# PostgreSQL Installation
+# Virtual env installation
+
+```sh
+conda create -n xz2-demo312 python=3.12 -y
+conda activate xz2-demo312
+pip install -r requirements.txt
+```
+
+# PostgreSQL installation
 
 ```sh
 docker volume create pg__data
@@ -11,8 +19,6 @@ docker run \
     -v pg__data:/var/lib/postgresql/data \
     postgres:16
 ```
-
-# Set up
 
 ## Replication
 
