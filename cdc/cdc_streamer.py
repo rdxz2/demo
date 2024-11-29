@@ -36,16 +36,16 @@ REPL_DB_NAME = os.environ['REPL_DB_NAME']
 REPL_PUBL_NAME = os.environ['REPL_PUBL_NAME']
 REPL_SLOT_NAME = os.environ['REPL_SLOT_NAME']
 
-STREAM_NO_MESSAGE_REPORT_INTERVAL_S = 5  # 1 minute, if no message received for this time, report it
-STREAM_DELAY_PRINT_INTERVAL_S = 1
+STREAM_NO_MESSAGE_REPORT_INTERVAL_S = os.environ['STREAM_NO_MESSAGE_REPORT_INTERVAL_S']  # 1 minute, if no message received for this time, report it
+STREAM_DELAY_PRINT_INTERVAL_S = os.environ['STREAM_DELAY_PRINT_INTERVAL_S']
 
 FILEWRITER_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'stream')
-FILEWRITER_MAX_FILE_SIZE_B = pow(1024, 3)  # 1 GB, if a single file exceeds this size, close all files
-FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S = 5  # 1 minute, if a file is opened for this time, close all files
-FILEWRITER_NO_MESSAGE_WAIT_TIME_S = 5  # 1 minute, if no message received for this time, close all files
+FILEWRITER_MAX_FILE_SIZE_B = os.environ['FILEWRITER_MAX_FILE_SIZE_B']  # 1 GB, if a single file exceeds this size, close all files
+FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S = os.environ['FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S']  # 1 minute, if a file is opened for this time, close all files
+FILEWRITER_NO_MESSAGE_WAIT_TIME_S = os.environ['FILEWRITER_NO_MESSAGE_WAIT_TIME_S']  # 1 minute, if no message received for this time, close all files
 
-CONSUMER_QUEUE_MAX_SIZE = 1000
-CONSUMER_POLL_INTERVAL_S = 1
+CONSUMER_QUEUE_MAX_SIZE = os.environ['CONSUMER_QUEUE_MAX_SIZE']
+CONSUMER_POLL_INTERVAL_S = os.environ['CONSUMER_POLL_INTERVAL_S']
 
 UPLOAD_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'upload')
 
