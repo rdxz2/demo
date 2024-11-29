@@ -29,23 +29,23 @@ from decoder import (
 dotenv.load_dotenv()
 
 REPL_DB_HOST = os.environ['REPL_DB_HOST']
-REPL_DB_PORT = os.environ['REPL_DB_PORT']
+REPL_DB_PORT = int(os.environ['REPL_DB_PORT'])
 REPL_DB_USER = os.environ['REPL_DB_USER']
 REPL_DB_PASSWORD = os.environ['REPL_DB_PASSWORD']
 REPL_DB_NAME = os.environ['REPL_DB_NAME']
 REPL_PUBL_NAME = os.environ['REPL_PUBL_NAME']
 REPL_SLOT_NAME = os.environ['REPL_SLOT_NAME']
 
-STREAM_NO_MESSAGE_REPORT_INTERVAL_S = os.environ['STREAM_NO_MESSAGE_REPORT_INTERVAL_S']  # 1 minute, if no message received for this time, report it
-STREAM_DELAY_PRINT_INTERVAL_S = os.environ['STREAM_DELAY_PRINT_INTERVAL_S']
+STREAM_NO_MESSAGE_REPORT_INTERVAL_S = int(os.environ['STREAM_NO_MESSAGE_REPORT_INTERVAL_S'])  # 1 minute, if no message received for this time, report it
+STREAM_DELAY_PRINT_INTERVAL_S = int(os.environ['STREAM_DELAY_PRINT_INTERVAL_S'])
 
 FILEWRITER_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'stream')
-FILEWRITER_MAX_FILE_SIZE_B = os.environ['FILEWRITER_MAX_FILE_SIZE_B']  # 1 GB, if a single file exceeds this size, close all files
-FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S = os.environ['FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S']  # 1 minute, if a file is opened for this time, close all files
-FILEWRITER_NO_MESSAGE_WAIT_TIME_S = os.environ['FILEWRITER_NO_MESSAGE_WAIT_TIME_S']  # 1 minute, if no message received for this time, close all files
+FILEWRITER_MAX_FILE_SIZE_B = int(os.environ['FILEWRITER_MAX_FILE_SIZE_B'])  # 1 GB, if a single file exceeds this size, close all files
+FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S = int(os.environ['FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S'])  # 1 minute, if a file is opened for this time, close all files
+FILEWRITER_NO_MESSAGE_WAIT_TIME_S = int(os.environ['FILEWRITER_NO_MESSAGE_WAIT_TIME_S'])  # 1 minute, if no message received for this time, close all files
 
-CONSUMER_QUEUE_MAX_SIZE = os.environ['CONSUMER_QUEUE_MAX_SIZE']
-CONSUMER_POLL_INTERVAL_S = os.environ['CONSUMER_POLL_INTERVAL_S']
+CONSUMER_QUEUE_MAX_SIZE = int(os.environ['CONSUMER_QUEUE_MAX_SIZE'])
+CONSUMER_POLL_INTERVAL_S = int(os.environ['CONSUMER_POLL_INTERVAL_S'])
 
 UPLOAD_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'upload')
 
