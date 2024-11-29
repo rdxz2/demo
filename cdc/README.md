@@ -1,8 +1,8 @@
 # Virtual env installation
 
 ```sh
-conda create -n xz2-demo312 python=3.12 -y
-conda activate xz2-demo312
+conda create -n xz2democdc312 python=3.12 -y
+conda activate xz2democdc312
 pip install -r requirements.txt
 ```
 
