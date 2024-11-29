@@ -128,12 +128,10 @@ class LogicalReplicationStreamer:
 
     def consumer(self) -> None:
         logger.debug('Consumer thread started...')
-        empty_counter = 0
         latest_no_msg_print_ts = datetime.now(tz=timezone.utc)
         try:
             while not self.exception_event.is_set():
                 if not self.q.empty():
-                    empty_counter = 0
 
                     msg: ReplicationMessage = self.q.get()
                     self.latest_lsn = msg.data_start
@@ -153,9 +151,7 @@ class LogicalReplicationStreamer:
                             logger.info(f'TXID: {msg.transaction.xid}, LSN: {msg.transaction.lsn}, DELAY: {(now - msg.transaction.commit_ts).total_seconds()} s')
                             self.latest_delay_print_ts = now
 
-                else:
-                    empty_counter += 1
-
+                else:  # No message
                     now = datetime.now(tz=timezone.utc)
                     if (now - self.latest_msg_ts).total_seconds() > STREAM_NO_MESSAGE_REPORT_INTERVAL_S and (now - latest_no_msg_print_ts).total_seconds() > STREAM_NO_MESSAGE_REPORT_INTERVAL_S:
                         logger.warning(f'No message for {(now - self.latest_msg_ts).total_seconds()} seconds')
