@@ -32,6 +32,17 @@ MAP__PG_DTYPE__PY_DTYPE = {  # Other than this is considered 'str'
     'bool': bool,
 }
 
+MAP__PG_DTYPE__BQ_DTYPE = {  # Other than this is considered 'STRING'
+    'bigint': 'INT64',
+    'integer': 'INT64',
+    'smallint': 'INT64',
+    'timestamp with time zone': 'TIMESTAMP',
+    'timestamp without time zone': 'DATETIME',
+    'numeric': 'FLOAT64',
+    'double precision': 'FLOAT64',
+    'bool': 'BOOL',
+}
+
 
 def convert_ts_to_datetime(ts_ms: int) -> datetime: return PG_EPOCH + timedelta(microseconds=ts_ms)  # PostgreSQL epoch is 2000-01-01
 
@@ -243,11 +254,11 @@ class Decoder:
             table_columns = [column for column in table.columns if column.pk]
             return {column.name: MAP__PG_DTYPE__PY_DTYPE.get(column.dtype, str)(datum.value) for column, datum in zip(table_columns, tuple_data.data) if column.pk}
 
-    def decode(self, msg: ReplicationMessage) -> TransactionEvent | list[TransactionEvent]:
+    def decode(self, msg: ReplicationMessage) -> list[TransactionEvent]:
         msg_type = msg.payload[:1].decode('utf-8')
         match msg_type:
             case 'R':
-                self.decode_message_relation(msg)
+                self.decode_relation(msg)
             case 'B':
                 if self.transaction:
                     raise ValueError(f'Previous transaction not closed: {self.transaction}')
@@ -273,7 +284,7 @@ class Decoder:
             case _:
                 return
 
-    def decode_message_relation(self, msg: ReplicationMessage) -> None:
+    def decode_relation(self, msg: ReplicationMessage) -> None:
         relation = Relation(msg.payload)
         msg.payload = None
 
@@ -295,6 +306,7 @@ class Decoder:
         if new_column_names:
             map__column_name__nullable = self.fetch_columns_nullable(self.map__relation_oid__table[relation.oid].tschema, self.map__relation_oid__table[relation.oid].name, new_column_names)
 
+            ordinal_position = 1
             for relation_column in relation.columns:
                 if relation_column in map__relation_column__column:
                     continue
@@ -309,8 +321,12 @@ class Decoder:
                     name=relation_column.name,
                     dtype_oid=relation_column.dtype_oid,
                     dtype=self.map__dtype_oid__dtype[relation_column.dtype_oid],
+                    bq_dtype=MAP__PG_DTYPE__BQ_DTYPE.get(self.map__dtype_oid__dtype[relation_column.dtype_oid], 'STRING'),
                     is_nullable=map__column_name__nullable[relation_column.name],
+                    ordinal_position=ordinal_position,
                 ))
+
+                ordinal_position += 1
 
         # Validate number of columns
         if len(relation.columns) != len(self.map__relation_oid__table[relation.oid].columns):
@@ -325,16 +341,16 @@ class Decoder:
             xid=begin.transaction_xid,
         )
 
-    def decode_insert(self, msg: ReplicationMessage) -> TransactionEvent:
+    def decode_insert(self, msg: ReplicationMessage) -> list[TransactionEvent]:
         insert = Insert(msg.payload)
         msg.payload = None
-        return TransactionEvent(
+        return [TransactionEvent(
             op=insert.byte1,  # Must be 'I'
             replication_msg=msg,
             transaction=self.transaction,
             table=self.map__relation_oid__table[insert.relation_oid],
             data=self.convert_tuple_data_to_py_data(self.map__relation_oid__table[insert.relation_oid], insert.new_tuple),
-        )
+        )]
 
     def decode_update(self, msg: ReplicationMessage) -> list[TransactionEvent]:
         update = Update(msg.payload)
@@ -359,16 +375,16 @@ class Decoder:
 
         return transaction_events
 
-    def decode_delete(self, msg: ReplicationMessage) -> TransactionEvent:
+    def decode_delete(self, msg: ReplicationMessage) -> list[TransactionEvent]:
         delete = Delete(msg.payload)
         msg.payload = None
-        return TransactionEvent(
+        return [TransactionEvent(
             op=delete.byte1,  # Must be 'D'
             replication_msg=msg,
             transaction=self.transaction,
             table=self.map__relation_oid__table[delete.relation_oid],
             data=self.convert_tuple_data_to_py_data(self.map__relation_oid__table[delete.relation_oid], delete.old_tuple, is_pk_only=delete.old_tuple_byte == 'K'),
-        )
+        )]
 
     def decode_truncate(self, msg: ReplicationMessage) -> list[TransactionEvent]:
         truncate = Truncate(msg.payload)

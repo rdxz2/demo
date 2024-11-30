@@ -80,7 +80,6 @@ class LogicalReplicationStreamer:
         logger.debug(f'Connected to db: {REPL_DB_NAME} (Replication)')
 
     def run(self) -> None:
-        logger.info('Starting cdc streamer...')
         thread_stream = Thread(target=self.streamer, daemon=True)  # Spawn thread to start streaming from replication slot
         thread_consumer = Thread(target=self.consumer, daemon=True)  # Spawn thread to consume the streamed logical replication message
 
@@ -131,38 +130,36 @@ class LogicalReplicationStreamer:
         latest_no_msg_print_ts = datetime.now(tz=timezone.utc)
         try:
             while not self.exception_event.is_set():
+                now = datetime.now(tz=timezone.utc)
                 if not self.q.empty():
-
                     msg: ReplicationMessage = self.q.get()
                     self.latest_lsn = msg.data_start
-                    msg = self.decoder.decode(msg)
+                    decoded_msgs = self.decoder.decode(msg)
 
-                    if msg is None:  # From begin, commit
+                    if decoded_msgs is None:  # Begin, commit
                         continue
-                    elif type(msg) == TransactionEvent:  # From insert, update, delete
-                        msg_to_write = [msg]
-                    elif type(msg) == list:  # From update, truncate
-                        msg_to_write = msg
 
-                    for msg in msg_to_write:
-                        self.write_to_file(msg)
-                        now = datetime.now(tz=timezone.utc)
+                    for decoded_msg in decoded_msgs:
+                        self.write_to_file(decoded_msg)
+                        # Print the delay
                         if (now - self.latest_delay_print_ts).total_seconds() > STREAM_DELAY_PRINT_INTERVAL_S:
-                            logger.info(f'TXID: {msg.transaction.xid}, LSN: {msg.transaction.lsn}, DELAY: {(now - msg.transaction.commit_ts).total_seconds()} s')
+                            logger.info(f'TXID: {decoded_msg.transaction.xid}, LSN: {decoded_msg.transaction.lsn}, DELAY: {(now - decoded_msg.transaction.commit_ts).total_seconds()} s')
                             self.latest_delay_print_ts = now
 
+                    # Close all files if it's opened for too long
+                    if (now - self.latest_all_file_closed_ts).total_seconds() > FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S:
+                        self.close_all_files(f'all files opened for {FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S} seconds')
+
                 else:  # No message
-                    now = datetime.now(tz=timezone.utc)
                     if (now - self.latest_msg_ts).total_seconds() > STREAM_NO_MESSAGE_REPORT_INTERVAL_S and (now - latest_no_msg_print_ts).total_seconds() > STREAM_NO_MESSAGE_REPORT_INTERVAL_S:
                         logger.warning(f'No message for {(now - self.latest_msg_ts).total_seconds()} seconds')
                         latest_no_msg_print_ts = now
 
-                    time.sleep(CONSUMER_POLL_INTERVAL_S)
+                    # Close all files if no message received for too long
+                    if (now - self.latest_all_file_closed_ts).total_seconds() > FILEWRITER_NO_MESSAGE_WAIT_TIME_S:
+                        self.close_all_files(f'no message for {FILEWRITER_NO_MESSAGE_WAIT_TIME_S} seconds')
 
-                    # Close all files if it's opened for too long
-                    if (datetime.now(tz=timezone.utc) - self.latest_all_file_closed_ts).total_seconds() > FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S:
-                        self.close_all_files(f'Reached all files opened for {FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S} seconds')
-                        self.latest_all_file_closed_ts = datetime.now(tz=timezone.utc)
+                    time.sleep(CONSUMER_POLL_INTERVAL_S)
 
                 if self.send_feedback:
                     if not self.latest_lsn:
@@ -182,25 +179,45 @@ class LogicalReplicationStreamer:
         finally:
             logger.warning('Gracefully stopped consumer thread')
 
-    def write_to_file(self, msg: TransactionEvent) -> None:
-        table_name = f'{msg.table.tschema}.{msg.table.name}'
-        filename = os.path.join(FILEWRITER_OUTPUT_DIR, f'{msg.transaction.commit_ts.strftime("%Y%m%d%H%M%S")}-{table_name}.json')
+    def write_to_file(self, decoded_msg: TransactionEvent) -> None:
+        table_name = f'{decoded_msg.table.tschema}.{decoded_msg.table.name}'
+        filename = os.path.join(FILEWRITER_OUTPUT_DIR, f'{decoded_msg.transaction.commit_ts.strftime("%Y%m%d%H%M%S")}-{table_name}.json')
         dirname = os.path.dirname(filename)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
 
         # Construct data
         data = {
-            'op': msg.op,
-            'msg_lsn': msg.replication_msg.data_start,
-            'msg_send_time': msg.replication_msg.send_time,
-            'msg_data_size': msg.replication_msg.data_size,
-            'msg_wal_end': msg.replication_msg.wal_end,
-            'transaction_lsn': msg.transaction.lsn,
-            'transaction_commit_ts': msg.transaction.commit_ts,
-            'transaction_xid': msg.transaction.xid,
+            '__op': decoded_msg.op,
+            '__lsn': decoded_msg.replication_msg.data_start,
+            '__send_ts': decoded_msg.replication_msg.send_time,
+            '__size': decoded_msg.replication_msg.data_size,
+            '__wal_end': decoded_msg.replication_msg.wal_end,
+            '__tlsn': decoded_msg.transaction.lsn,
+            '__tcommit_ts': decoded_msg.transaction.commit_ts,
+            '__tid': decoded_msg.transaction.xid,
+            # Additional metadata
+            '__metadata': {
+                'table': {
+                    'db': decoded_msg.table.db,
+                    'schema': decoded_msg.table.tschema,
+                    'name': decoded_msg.table.name,
+                    'oid': decoded_msg.table.oid,
+                    'columns': [
+                        {
+                            'pk': column.pk,
+                            'name': column.name,
+                            'dtype_oid': column.dtype_oid,
+                            'dtype': column.dtype,
+                            'bq_dtype': column.bq_dtype,
+                            'is_nullable': column.is_nullable,
+                            'ordinal_position': column.ordinal_position,
+                        } for column in decoded_msg.table.columns
+                    ],
+                },
+            },
         }
-        data.update(msg.data) if msg.data else None
+        data.update(decoded_msg.data) if decoded_msg.data else None  # None is for delete, truncate event
         data = json.dumps(data, default=json_serializer) + '\n'
         data_size = sys.getsizeof(data)
 
@@ -234,6 +251,8 @@ class LogicalReplicationStreamer:
         if is_any_closed:
             self.send_feedback = True
 
+        self.latest_all_file_closed_ts = datetime.now(tz=timezone.utc)
+
     def stop(self) -> None:
         self.cursor.close()
         self.conn.close()
@@ -254,5 +273,6 @@ if __name__ == '__main__':
     [os.remove(file) for file in glob.glob(f'{FILEWRITER_OUTPUT_DIR}/*.json')]
 
     # Run the streamer
+    logger.info('Starting cdc streamer...')
     streamer = LogicalReplicationStreamer(host=REPL_DB_HOST, port=REPL_DB_PORT, user=REPL_DB_USER, password=REPL_DB_PASSWORD, database=REPL_DB_NAME)
     streamer.run()

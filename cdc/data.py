@@ -20,7 +20,9 @@ class Column(BaseModel):
     name: str
     dtype_oid: int
     dtype: str
+    bq_dtype: str
     is_nullable: bool
+    ordinal_position: int
 
 
 class Table(BaseModel):
@@ -45,7 +47,7 @@ class ReplicationMessage(BaseModel):
     wal_end: int
 
 
-class TransactionEvent(BaseModel):
+class TransactionEvent(BaseModel):  # Decoded ReplicationMessage
     op: EnumOp
     replication_msg: ReplicationMessage
     transaction: Transaction
