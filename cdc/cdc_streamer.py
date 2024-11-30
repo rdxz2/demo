@@ -184,7 +184,7 @@ class LogicalReplicationStreamer:
 
     def write_to_file(self, msg: TransactionEvent) -> None:
         table_name = f'{msg.table.tschema}.{msg.table.name}'
-        filename = os.path.join(FILEWRITER_OUTPUT_DIR, f'{datetime.now(tz=timezone.utc).strftime("%Y%m%d%H%M%S")}-{table_name}.json')
+        filename = os.path.join(FILEWRITER_OUTPUT_DIR, f'{msg.transaction.commit_ts.strftime("%Y%m%d%H%M%S")}-{table_name}.json')
         dirname = os.path.dirname(filename)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
