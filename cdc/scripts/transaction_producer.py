@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS auto_stream_a (
     value_dt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     value_dt2 TIMESTAMP NOT NULL
 );
+ALTER TABLE auto_stream_a REPLICA IDENTITY FULL;
 ''', return_df=False
 )
 
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS auto_stream_b (
     ts TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     value FLOAT
 );
+ALTER TABLE auto_stream_b REPLICA IDENTITY FULL;
 ''', return_df=False
 )
 
@@ -81,4 +83,4 @@ while True:
             ''', return_df=False
         )
 
-    time.sleep(.1)
+    # time.sleep(.1)
