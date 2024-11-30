@@ -28,13 +28,6 @@ UPLOADER_THREADS = int(os.environ['UPLOADER_THREADS'])
 HIVE_PARTITION_COLUMN = '__tcommit_dt'
 
 
-def mem_to_compressed_json(data: list, dst_file: str):
-    os.remove(dst_file) if os.path.exists(dst_file) else None
-    with gzip.open(dst_file, 'wt') as f:
-        for msg in data:
-            f.write(json.dumps(msg) + '\n')
-
-
 def compress(src_file: str):
     dst_file = src_file + '.gz'
 
@@ -64,7 +57,7 @@ class Uploader:
         self.bucket = self.gcs.bucket(GCS_BUCKET)
         logger.debug(f'Connected to GCS: {self.bucket.name}')
 
-    def upload(self, group:str, filenames: set[str]):
+    def upload(self, group: str, filenames: set[str]):
         """
         Each tables must be run serially to avoid race conditions on updating BQ external table
         """
