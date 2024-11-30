@@ -65,7 +65,6 @@ class Uploader:
         for filename in filenames:
             # Read file metadata
             is_new_table = False
-            # changed_dtypes: list[tuple] = []  # ( column_name, old_dtype, new_dtype )
             is_columns_changed = False
             with open(filename, 'r') as f:
                 # all_msgs = []
@@ -83,19 +82,15 @@ class Uploader:
                     existing_columns = {column[0]: column[1] for column in self.map__table__columns[table_name]}
                     for column in new_columns:
                         if column.name not in existing_columns:  # New column
-                            # changed_dtypes.append(column.name, None, column.bq_dtype)
                             is_columns_changed = True
                             break
                         elif column.bq_dtype != existing_columns[column.name]:  # Changed column datatype
-                            # changed_dtypes.append(column.name, existing_columns[column.name], column.bq_dtype)
                             is_columns_changed = True
                             break
 
                     # all_msgs.append(msg)
 
             # Compress data
-            # compressed_filename = filename + '.gz'
-            # mem_to_compressed_json(all_msgs, compressed_filename)
             compressed_filename = compress(filename)
             logger.debug(f'Compress: {filename} --> {compressed_filename}')
             compressed_filename_base = os.path.basename(compressed_filename)
