@@ -57,8 +57,8 @@ class LogicalReplicationStreamer:
     This process as another subprocess `file_writer()` to consume the decoded messages and write it into files.
     """
 
-    def __init__(self, host: str, port: str, user: str, password: str, database: str, aplication_name: str = f'streamer-{REPL_DB_NAME}-{uuid.uuid4()}', **kwargs) -> None:
-        self.dsn = psycopg2.extensions.make_dsn(host=host, port=port, user=user, password=password, database=database, application_name=aplication_name, **kwargs)
+    def __init__(self, host: str, port: str, user: str, password: str, database: str, application_name: str = f'streamer-{REPL_DB_NAME}-{uuid.uuid4()}', **kwargs) -> None:
+        self.dsn = psycopg2.extensions.make_dsn(host=host, port=port, user=user, password=password, database=database, application_name=application_name, **kwargs)
 
         self.decoder = Decoder(self.dsn)
 
