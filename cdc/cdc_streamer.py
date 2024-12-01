@@ -57,7 +57,7 @@ class LogicalReplicationStreamer:
     This process as another subprocess `file_writer()` to consume the decoded messages and write it into files.
     """
 
-    def __init__(self, host: str, port: str, user: str, password: str, database: str, application_name: str = f'streamer-{REPL_DB_NAME}-{uuid.uuid4()}', **kwargs) -> None:
+    def __init__(self, host: str, port: str, user: str, password: str, database: str, application_name: str = f'cdc-streamer-{REPL_DB_NAME}-{uuid.uuid4()}', **kwargs) -> None:
         self.dsn = psycopg2.extensions.make_dsn(host=host, port=port, user=user, password=password, database=database, application_name=application_name, **kwargs)
 
         self.decoder = Decoder(self.dsn)
@@ -150,6 +150,8 @@ class LogicalReplicationStreamer:
                     if (now - self.latest_all_file_closed_ts).total_seconds() > FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S:
                         self.close_all_files(f'all files opened for {FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S} seconds')
 
+                    self.latest_msg_ts = now
+
                 else:  # No message
                     if (now - self.latest_msg_ts).total_seconds() > STREAM_NO_MESSAGE_REPORT_INTERVAL_S and (now - latest_no_msg_print_ts).total_seconds() > STREAM_NO_MESSAGE_REPORT_INTERVAL_S:
                         logger.warning(f'No message for {(now - self.latest_msg_ts).total_seconds()} seconds')
@@ -180,7 +182,7 @@ class LogicalReplicationStreamer:
             logger.warning('Gracefully stopped consumer thread')
 
     def write_to_file(self, decoded_msg: TransactionEvent) -> None:
-        table_name = f'{decoded_msg.table.tschema}.{decoded_msg.table.name}'
+        table_name = f'{decoded_msg.table.db}.{decoded_msg.table.tschema}.{decoded_msg.table.name}'  # Construct table fqn
         filename = os.path.join(FILEWRITER_OUTPUT_DIR, f'{decoded_msg.transaction.commit_ts.strftime("%Y%m%d%H%M%S")}-{table_name}.json')
         dirname = os.path.dirname(filename)
         if not os.path.exists(dirname):
