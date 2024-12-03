@@ -2,13 +2,13 @@ import dotenv
 import glob
 import json
 import os
-import traceback
 import psycopg2
 import psycopg2.extensions
 import psycopg2.extras
 import sys
 import threading
 import time
+import traceback
 import uuid
 
 from datetime import datetime, timezone
