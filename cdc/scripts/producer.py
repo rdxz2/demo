@@ -1,4 +1,5 @@
 import json
+import multiprocessing
 import random
 import sys
 import time
@@ -6,7 +7,6 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from loguru import logger
-from multiprocessing import Process
 
 from utill.my_string import generate_random_string
 from utill.my_pg_v2 import PG
@@ -14,8 +14,7 @@ from utill.my_pg_v2 import PG
 logger.remove()
 logger.add(sys.stdout, level='INFO')
 
-global stop
-stop = False
+stop = multiprocessing.Value('b', False)
 
 PG_CONN_NAME = 'stream-local-postgres'
 
@@ -23,7 +22,7 @@ PG_CONN_NAME = 'stream-local-postgres'
 def randomize_sleep_time(): return random.randint(2, 10)
 
 
-class AllDtype(Process):
+class AllDtype(multiprocessing.Process):
     """
     Generate tables with all data types
     """
@@ -61,9 +60,6 @@ class AllDtype(Process):
             )
 
             while True:
-                if stop:
-                    break
-
                 self.pg.execute_query(
                     f'''
                     INSERT INTO all_dtype (t_smallint, t_int, t_bigint, t_varchar, t_text, t_json, t_double, t_bool, t_ts, t_dt, t_date, t_time, t_byte) VALUES
@@ -118,11 +114,12 @@ class AllDtype(Process):
                 )
                 time.sleep(randomize_sleep_time())
         except:
-            stop = False
+            stop.value = True
+            logger.error('Stopping for error')
             raise
 
 
-class Gen100(Process):
+class Gen100(multiprocessing.Process):
     """
     Generate 100 tables and insert data into them
     """
@@ -147,6 +144,10 @@ class Gen100(Process):
         )
 
         while True:
+            if stop.value:
+                logger.warning(f'Exiting thread Gen100: {i}')
+                break
+
             self.pg.execute_query(
                 f'''INSERT INTO gen_{i} (value1, value2, value3) VALUES (%s, %s, %s);''',
                 random.randint(1, 10000),
@@ -165,11 +166,12 @@ class Gen100(Process):
                 futures = [executor.submit(self.insert, i) for i in range(100)]
                 [f.result() for f in futures]
         except:
-            stop = False
+            stop.value = True
+            logger.error('Stopping for error')
             raise
 
 
-class BigText(Process):
+class BigText(multiprocessing.Process):
     """
     Generate rows with big amount of text
     """
@@ -195,9 +197,6 @@ class BigText(Process):
             )
 
             while True:
-                if stop:
-                    break
-
                 self.pg.execute_query(
                     f'''INSERT INTO big_text (value1) VALUES (%s);''',
                     generate_random_string(random.randint(100_000, 1_000_000)),
@@ -206,11 +205,12 @@ class BigText(Process):
                 )
                 time.sleep(600)
         except:
-            stop = False
+            stop.value = True
+            logger.error('Stopping for error')
             raise
 
 
-class Truncate(Process):
+class Truncate(multiprocessing.Process):
     """
     Generate table, insert values, and truncate
     """
@@ -236,9 +236,6 @@ class Truncate(Process):
             )
 
             while True:
-                if stop:
-                    break
-
                 self.pg.execute_query(
                     f'''INSERT INTO ttruncate (value1) VALUES (%s), (%s), (%s), (%s), (%s);''',
                     random.randint(1, 1000),
@@ -257,11 +254,12 @@ class Truncate(Process):
                 )
                 time.sleep(randomize_sleep_time())
         except:
-            stop = False
+            stop.value = True
+            logger.error('Stopping for error')
             raise
 
 
-class Delete(Process):
+class Delete(multiprocessing.Process):
     """
     Generate table, insert values, and delete
     """
@@ -287,9 +285,6 @@ class Delete(Process):
             )
 
             while True:
-                if stop:
-                    break
-
                 # Insert
                 self.pg.execute_query(
                     f'''INSERT INTO tdelete (value1) VALUES (%s);''',
@@ -305,12 +300,13 @@ class Delete(Process):
                     return_df=False
                 )
                 time.sleep(randomize_sleep_time())
-        except Exception as e:
-            stop = False
+        except:
+            stop.value = True
+            logger.error('Stopping for error')
             raise
 
 
-class Update(Process):
+class Update(multiprocessing.Process):
     """
     Generate table, insert values, and update
     """
@@ -336,9 +332,6 @@ class Update(Process):
             )
 
             while True:
-                if stop:
-                    break
-
                 # Insert
                 self.pg.execute_query(
                     f'''INSERT INTO tupdate (value1) VALUES (%s);''',
@@ -357,7 +350,8 @@ class Update(Process):
                 )
                 time.sleep(randomize_sleep_time())
         except:
-            stop = False
+            stop.value = True
+            logger.error('Stopping for error')
             raise
 
 
@@ -372,3 +366,10 @@ if __name__ == '__main__':
     ]
     for p in ps:
         p.start()
+
+    for p in ps:
+        p.join()
+        logger.warning('Joined')
+
+    logger.info('Exiting')
+    quit()
