@@ -12,7 +12,6 @@ from datetime import datetime
 from google.cloud import bigquery, bigquery_storage_v1
 from google.cloud.bigquery_storage_v1 import types, writer
 from google.protobuf import descriptor_pb2
-from google.api_core.exceptions import InvalidArgument
 from loguru import logger
 from typing import Any
 
@@ -138,42 +137,6 @@ class Uploader:
                         elif map__column__dtype[key] in {'timestamp without time zone'}:
                             data[key] = datetime.fromisoformat(data[key]).strftime('%Y-%m-%d %H:%M:%S')  # Convert to string
                     yield data
-
-    # def write_default_stream(self, filenames, bq_table_log_fqn: str, pg_table: Table, pb2_class):
-    #     parent = self.write_client.table_path(*bq_table_log_fqn.split('.'))
-    #     stream_name = f'{parent}/_default'
-    #     write_stream = types.WriteStream()
-
-    #     # Create a template with fields needed for the first request.
-    #     request_template = types.AppendRowsRequest()
-
-    #     # The request must contain the stream name.
-    #     request_template.write_stream = stream_name
-
-    #     # Generating the protocol buffer representation of the message descriptor.
-    #     proto_schema = types.ProtoSchema()
-    #     proto_descriptor = descriptor_pb2.DescriptorProto()
-    #     pb2_class.DESCRIPTOR.CopyToProto(proto_descriptor)
-    #     proto_schema.proto_descriptor = proto_descriptor
-    #     proto_data = types.AppendRowsRequest.ProtoData()
-    #     proto_data.writer_schema = proto_schema
-    #     request_template.proto_rows = proto_data
-
-    #     # Construct an AppendRowsStream to send an arbitrary number of requests to a stream.
-    #     append_rows_stream = writer.AppendRowsStream(self.write_client, request_template)
-
-    #     # Append proto2 serialized bytes to the serialized_rows repeated field using create_row_data.
-    #     proto_rows = types.ProtoRows()
-    #     for data in self.generate_raw_data(filenames, pg_table):
-    #         proto_rows.serialized_rows.append(pb2_class(**data).SerializeToString())
-
-    #     # Appends data to the given stream.
-    #     request = types.AppendRowsRequest()
-    #     proto_data = types.AppendRowsRequest.ProtoData()
-    #     proto_data.rows = proto_rows
-    #     request.proto_rows = proto_data
-
-    #     append_rows_stream.send(request)
 
     def write_pending(self, filenames, bq_table_log_fqn: str, pg_table: Table, pb2_class):
         # Create a batch of row data by appending proto2 serialized bytes to the
@@ -319,58 +282,7 @@ class Uploader:
         pb2_class = self.import_proto(pg_table)
         logger.debug(f'{pg_table_fqn}; generated & compiled proto file')
 
-        # self.write_default_stream(filenames, bq_table_log_fqn, pg_table, pb2_class)
         self.write_pending(filenames, bq_table_log_fqn, pg_table, pb2_class)
-
-        # # <<----- Prepare storage write API objects
-
-        # write_client = bigquery_storage_v1.BigQueryWriteClient.from_service_account_json(SA_FILENAME)
-        # parent = write_client.table_path(*bq_table_log_fqn.split('.'))
-        # stream_name = f'{parent}/_default'
-        # write_stream = types.WriteStream()
-
-        # # Create a template with fields needed for the first request.
-        # request_template = types.AppendRowsRequest()
-
-        # # The request must contain the stream name.
-        # request_template.write_stream = stream_name
-
-        # # Generating the protocol buffer representation of the message descriptor.
-        # proto_schema = types.ProtoSchema()
-        # proto_descriptor = descriptor_pb2.DescriptorProto()
-        # pb2_class.DESCRIPTOR.CopyToProto(proto_descriptor)
-        # proto_schema.proto_descriptor = proto_descriptor
-        # proto_data = types.AppendRowsRequest.ProtoData()
-        # proto_data.writer_schema = proto_schema
-        # request_template.proto_rows = proto_data
-
-        # # Construct an AppendRowsStream to send an arbitrary number of requests to a stream.
-        # append_rows_stream = writer.AppendRowsStream(write_client, request_template)
-
-        # # Append proto2 serialized bytes to the serialized_rows repeated field using create_row_data.
-        # proto_rows = types.ProtoRows()
-        # map__column__dtype = {column.name: column.dtype for column in pg_table.columns}
-        # map__column__dtype.update(META_MAP_PG_COLUMNS)
-        # for filename in sorted(filenames):  # Ensure transactions order
-        #     with open(filename, 'r') as f:
-        #         while line := f.readline():
-        #             data: dict = json.loads(line)
-        #             for key in data.keys():
-        #                 if map__column__dtype[key] in {'jsonb', 'json'}:
-        #                     data[key] = json.dumps(data[key])
-        #                 elif map__column__dtype[key] in {'timestamp with time zone', 'timestamp without time zone'}:
-        #                     data[key] = int(datetime.fromisoformat(data[key]).timestamp() * 1000000)  # microseconds
-        #             proto_rows.serialized_rows.append(pb2_class(**data).SerializeToString())
-
-        # # Appends data to the given stream.
-        # request = types.AppendRowsRequest()
-        # proto_data = types.AppendRowsRequest.ProtoData()
-        # proto_data.rows = proto_rows
-        # request.proto_rows = proto_data
-
-        # write_client.finalize_write_stream(name=stream_name)
-
-        # append_rows_stream.send(request)
 
         logger.info(f'{pg_table_fqn}: streamed to log table')
 
