@@ -322,8 +322,9 @@ class Decoder:
         if new_column_names:
             map__column_name__nullable = self.fetch_columns_nullable(self.map__relation_oid__table[relation.oid].tschema, self.map__relation_oid__table[relation.oid].name, new_column_names)
 
-            ordinal_position = 1
-            for relation_column in relation.columns:
+            ordinal_position = 0
+            for relation_column in relation.columns:  # Iterate the full column list
+                ordinal_position += 1
                 if relation_column in map__relation_column__column:
                     continue
 
@@ -342,8 +343,6 @@ class Decoder:
                     is_nullable=map__column_name__nullable[relation_column.name],
                     ordinal_position=ordinal_position,
                 ))
-
-                ordinal_position += 1
 
         # Validate number of columns
         if len(relation.columns) != len(self.map__relation_oid__table[relation.oid].columns):
