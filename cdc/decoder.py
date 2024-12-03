@@ -29,6 +29,7 @@ MAP__PG_DTYPE__PY_DTYPE = {  # Other than this is considered 'str'
     'timestamp without time zone': str,
     'numeric': float,
     'double precision': float,
+    'boolean': bool,
     'bool': bool,
 }
 
@@ -40,7 +41,20 @@ MAP__PG_DTYPE__BQ_DTYPE = {  # Other than this is considered 'STRING'
     'timestamp without time zone': 'DATETIME',
     'numeric': 'FLOAT64',
     'double precision': 'FLOAT64',
+    'boolean': 'BOOL',
     'bool': 'BOOL',
+}
+
+MAP__PG_DTYPE__PROTO_DTYPE = {  # Other than this is considered 'string'
+    'bigint': 'int64',
+    'integer': 'int32',
+    'smallint': 'int16',
+    'timestamp with time zone': 'int64',
+    'timestamp without time zone': 'string',
+    'numeric': 'float',
+    'double precision': 'float',
+    'boolean': 'bool',
+    'bool': 'bool',
 }
 
 
@@ -186,11 +200,13 @@ class Update(ReplicationMessagePayload):  # https://www.postgresql.org/docs/curr
         if submessage_byte in {'K', 'O'}:
             self.old_tuple_byte = submessage_byte
             self.old_tuple = self.read_tuple_data()
-        elif submessage_byte == 'N':
-            self.new_tuple_byte = submessage_byte
-            self.new_tuple = self.read_tuple_data()
+            self.new_tuple_byte = self.read_utf8()
         else:
-            raise ValueError(f'Invalid submessage type for {Update.__name__}: \'{submessage_byte}\'')
+            self.new_tuple_byte = submessage_byte
+
+        if self.new_tuple_byte != 'N':
+            raise ValueError(f'Did not find new_tuple_byte \'N\' submessage type for {Update.__name__}: \'{submessage_byte}\'')
+        self.new_tuple = self.read_tuple_data()
 
 
 class Delete(ReplicationMessagePayload):  # https://www.postgresql.org/docs/current/protocol-logicalrep-message-formats.html#PROTOCOL-LOGICALREP-MESSAGE-FORMATS-DELETE
@@ -292,7 +308,7 @@ class Decoder:
         if relation.oid not in self.map__relation_oid__table:
             self.map__relation_oid__table[relation.oid] = Table(
                 db=self.db_name,
-                tschema=relation.schema,
+                schema=relation.schema,
                 name=relation.name,
                 oid=relation.oid,
                 columns=[],
@@ -322,6 +338,7 @@ class Decoder:
                     dtype_oid=relation_column.dtype_oid,
                     dtype=self.map__dtype_oid__dtype[relation_column.dtype_oid],
                     bq_dtype=MAP__PG_DTYPE__BQ_DTYPE.get(self.map__dtype_oid__dtype[relation_column.dtype_oid], 'STRING'),
+                    proto_dtype=MAP__PG_DTYPE__PROTO_DTYPE.get(self.map__dtype_oid__dtype[relation_column.dtype_oid], 'string'),
                     is_nullable=map__column_name__nullable[relation_column.name],
                     ordinal_position=ordinal_position,
                 ))
