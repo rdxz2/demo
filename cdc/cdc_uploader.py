@@ -17,6 +17,7 @@ from typing import Any
 
 # import logging
 # logging.basicConfig(level=logging.DEBUG)
+# logging.basicConfig(level=logging.INFO)
 
 dotenv.load_dotenv()
 
@@ -221,7 +222,6 @@ class Uploader:
         pg_table_db, pg_table_schema, pg_table_name = pg_table_fqn.split('.')
 
         bq_table_log_fqn = f'{self.bq_client.project}.{self.dataset_id_log}.{pg_table_schema}__{pg_table_name}'
-        bq_table_fqn = f'{self.bq_client.project}.{self.dataset_id_main}.{pg_table_schema}__{pg_table_name}'
 
         # Detect schema changes
         for filename in sorted(filenames):  # Ensure transactions order
@@ -253,7 +253,10 @@ class Uploader:
                         `__tb` JSON,
                     {columns_str}
                     )
-                    PARTITION BY DATE(`__tx_commit_ts`);
+                    PARTITION BY DATE(`__tx_commit_ts`)
+                    OPTIONS (
+                        require_partition_filter=true
+                    );
                     '''
                 )
                 continue
@@ -280,7 +283,7 @@ class Uploader:
         # Generate proto file
         self.generate_and_compile_proto(pg_table)  # Here we will get the latest pg_columns read from the last file
         pb2_class = self.import_proto(pg_table)
-        logger.debug(f'{pg_table_fqn}; generated & compiled proto file')
+        logger.debug(f'{pg_table_fqn}: compiled proto file')
 
         self.write_pending(filenames, bq_table_log_fqn, pg_table, pb2_class)
 
