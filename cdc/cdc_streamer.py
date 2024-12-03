@@ -2,12 +2,12 @@ import dotenv
 import glob
 import json
 import os
+import traceback
 import psycopg2
 import psycopg2.extensions
 import psycopg2.extras
 import sys
 import threading
-# import traceback
 import time
 import uuid
 
@@ -36,16 +36,16 @@ REPL_DB_NAME = os.environ['REPL_DB_NAME']
 REPL_PUBL_NAME = os.environ['REPL_PUBL_NAME']
 REPL_SLOT_NAME = os.environ['REPL_SLOT_NAME']
 
-STREAM_NO_MESSAGE_REPORT_INTERVAL_S = int(os.environ['STREAM_NO_MESSAGE_REPORT_INTERVAL_S'])  # 1 minute, if no message received for this time, report it
+STREAM_NO_MESSAGE_REPORT_INTERVAL_S = int(os.environ['STREAM_NO_MESSAGE_REPORT_INTERVAL_S'])  # If no message received for this time, report it
 STREAM_DELAY_PRINT_INTERVAL_S = int(os.environ['STREAM_DELAY_PRINT_INTERVAL_S'])
 
 FILEWRITER_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'stream')
-FILEWRITER_MAX_FILE_SIZE_B = int(os.environ['FILEWRITER_MAX_FILE_SIZE_B'])  # 1 GB, if a single file exceeds this size, close all files
-FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S = int(os.environ['FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S'])  # 1 minute, if a file is opened for this time, close all files
-FILEWRITER_NO_MESSAGE_WAIT_TIME_S = int(os.environ['FILEWRITER_NO_MESSAGE_WAIT_TIME_S'])  # 1 minute, if no message received for this time, close all files
+FILEWRITER_MAX_FILE_SIZE_B = int(os.environ['FILEWRITER_MAX_FILE_SIZE_B'])  # If a single file exceeds this size, close all files
+FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S = int(os.environ['FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S'])  # If a file is opened for this time, close all files
+FILEWRITER_NO_MESSAGE_WAIT_TIME_S = int(os.environ['FILEWRITER_NO_MESSAGE_WAIT_TIME_S'])  # If no message received for this time, close all files
 
 CONSUMER_QUEUE_MAX_SIZE = int(os.environ['CONSUMER_QUEUE_MAX_SIZE'])
-CONSUMER_POLL_INTERVAL_S = int(os.environ['CONSUMER_POLL_INTERVAL_S'])
+CONSUMER_POLL_INTERVAL_S = int(os.environ['CONSUMER_POLL_INTERVAL_S'])  # Number of seconds to wait if there's no message in the queue
 
 UPLOAD_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'upload')
 
@@ -67,6 +67,7 @@ class LogicalReplicationStreamer:
         self.transaction = None
         self.send_feedback = False
         self.latest_lsn = None
+        self.msg_count = 0
         self.latest_delay_print_ts = datetime(1970, 1, 1, tzinfo=timezone.utc)
         self.latest_msg_ts = datetime.now(tz=timezone.utc)
         self.latest_all_file_closed_ts = datetime.now(tz=timezone.utc)
@@ -110,7 +111,7 @@ class LogicalReplicationStreamer:
             logger.debug(f'Replication started, publication name: \'{REPL_PUBL_NAME}\', replication slot name: \'{REPL_SLOT_NAME}\'')
             self.cursor.consume_stream(self.put_message_to_queue)
         except Exception as e:
-            logger.error(f'Error in streamer thread: {e}')
+            logger.error(f'Error in streamer thread: {e}\n{traceback.format_exc()}')
             self.exception_event.set()
             raise e
         finally:
@@ -133,6 +134,7 @@ class LogicalReplicationStreamer:
                 now = datetime.now(tz=timezone.utc)
                 if not self.q.empty():
                     msg: ReplicationMessage = self.q.get()
+                    self.msg_count += 1
                     self.latest_lsn = msg.data_start
                     decoded_msgs = self.decoder.decode(msg)
 
@@ -143,8 +145,9 @@ class LogicalReplicationStreamer:
                         self.write_to_file(decoded_msg)
                         # Print the delay
                         if (now - self.latest_delay_print_ts).total_seconds() > STREAM_DELAY_PRINT_INTERVAL_S:
-                            logger.info(f'TXID: {decoded_msg.transaction.xid}, LSN: {decoded_msg.transaction.lsn}, DELAY: {(now - decoded_msg.transaction.commit_ts).total_seconds()} s')
+                            logger.info(f'TX_ID: {decoded_msg.transaction.xid}, TX_LSN: {decoded_msg.transaction.lsn}, TX_DELAY: {(now - decoded_msg.transaction.commit_ts).total_seconds()} s, MSGs: {self.msg_count}')
                             self.latest_delay_print_ts = now
+                            self.msg_count = 0
 
                     # Close all files if it's opened for too long
                     if (now - self.latest_all_file_closed_ts).total_seconds() > FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S:
@@ -176,8 +179,8 @@ class LogicalReplicationStreamer:
             return
 
         except Exception as e:
+            logger.error(f'Error in consumer thread: {e}\n{traceback.format_exc()}')
             self.exception_event.set()
-            logger.error(f'Error in consumer thread: {e}')
         finally:
             logger.warning('Gracefully stopped consumer thread')
 
@@ -190,33 +193,37 @@ class LogicalReplicationStreamer:
 
         # Construct data
         data = {
-            '__op': decoded_msg.op,
-            '__lsn': decoded_msg.replication_msg.data_start,
-            '__send_ts': decoded_msg.replication_msg.send_time,
-            '__size': decoded_msg.replication_msg.data_size,
-            '__wal_end': decoded_msg.replication_msg.wal_end,
-            '__tlsn': decoded_msg.transaction.lsn,
-            '__tcommit_ts': decoded_msg.transaction.commit_ts,
-            '__tid': decoded_msg.transaction.xid,
-            # Additional metadata
-            '__metadata': {
-                'table': {
-                    'db': decoded_msg.table.db,
-                    'schema': decoded_msg.table.tschema,
-                    'name': decoded_msg.table.name,
-                    'oid': decoded_msg.table.oid,
-                    'columns': [
-                        {
-                            'pk': column.pk,
-                            'name': column.name,
-                            'dtype_oid': column.dtype_oid,
-                            'dtype': column.dtype,
-                            'bq_dtype': column.bq_dtype,
-                            'is_nullable': column.is_nullable,
-                            'ordinal_position': column.ordinal_position,
-                        } for column in decoded_msg.table.columns
-                    ],
-                },
+            # Metadata: message
+            '__m_op': decoded_msg.op.value,
+            '__m_lsn': decoded_msg.replication_msg.data_start,
+            '__m_send_ts': decoded_msg.replication_msg.send_time,
+            '__m_size': decoded_msg.replication_msg.data_size,
+            '__m_wal_end': decoded_msg.replication_msg.wal_end,
+            # Metadata: transaction
+            '__tx_lsn': decoded_msg.transaction.lsn,
+            '__tx_commit_ts': decoded_msg.transaction.commit_ts,
+            '__tx_id': decoded_msg.transaction.xid,
+            # Metadata: table
+            '__tb': {
+                'db': decoded_msg.table.db,
+                'schema': decoded_msg.table.tschema,
+                'name': decoded_msg.table.name,
+                'oid': decoded_msg.table.oid,
+                'fqn': decoded_msg.table.fqn,
+                'proto_classname': decoded_msg.table.proto_classname,
+                'proto_filename': decoded_msg.table.proto_filename,
+                'columns': [
+                    {
+                        'pk': column.pk,
+                        'name': column.name,
+                        'dtype_oid': column.dtype_oid,
+                        'dtype': column.dtype,
+                        'bq_dtype': column.bq_dtype,
+                        'proto_dtype': column.proto_dtype,
+                        'is_nullable': column.is_nullable,
+                        'ordinal_position': column.ordinal_position,
+                    } for column in decoded_msg.table.columns
+                ],
             },
         }
         data.update(decoded_msg.data) if decoded_msg.data else None  # None is for delete, truncate event
@@ -266,7 +273,6 @@ if __name__ == '__main__':
     if not os.path.exists(FILEWRITER_OUTPUT_DIR):
         os.makedirs(FILEWRITER_OUTPUT_DIR)
         logger.info(f'Create stream output dir: {FILEWRITER_OUTPUT_DIR}')
-
     if not os.path.exists(UPLOAD_OUTPUT_DIR):
         os.makedirs(UPLOAD_OUTPUT_DIR)
         logger.info(f'Create upload output dir: {UPLOAD_OUTPUT_DIR}')
