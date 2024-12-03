@@ -43,12 +43,13 @@ MAP__PG_DTYPE__BQ_DTYPE = {  # Other than this is considered 'STRING'
     'double precision': 'FLOAT64',
     'boolean': 'BOOL',
     'bool': 'BOOL',
+    'json': 'JSON',
 }
 
 MAP__PG_DTYPE__PROTO_DTYPE = {  # Other than this is considered 'string'
     'bigint': 'int64',
     'integer': 'int32',
-    'smallint': 'int16',
+    'smallint': 'int32',
     'timestamp with time zone': 'int64',
     'timestamp without time zone': 'string',
     'numeric': 'float',
@@ -65,6 +66,14 @@ def convert_bytes_to_int(input_bytes: bytes) -> int: return int.from_bytes(input
 
 
 def convert_bytes_to_utf8(input_bytes: bytes) -> str: return input_bytes.decode('utf-8')  # UTF-8
+
+
+def convert_tuple_data_to_py_data(table: Table, tuple_data: TupleData, is_pk_only: bool = False) -> dict:
+    if not is_pk_only:
+        return {column.name: MAP__PG_DTYPE__PY_DTYPE.get(column.dtype, str)(datum.value) for column, datum in zip(table.columns, tuple_data.data)}
+    else:
+        table_columns = [column for column in table.columns if column.pk]
+        return {column.name: MAP__PG_DTYPE__PY_DTYPE.get(column.dtype, str)(datum.value) for column, datum in zip(table_columns, tuple_data.data) if column.pk}
 
 
 def json_serializer(obj):
@@ -263,13 +272,6 @@ class Decoder:
         self.cursor.execute(f'SELECT attname AS column_name, attnotnull AS nullable FROM pg_attribute WHERE attrelid = \'{table_schema}.{table_name}\'::regclass AND attname IN ({column_names_str})')
         return {column_name: (False if attnotnull else True) for column_name, attnotnull in self.cursor.fetchall()}
 
-    def convert_tuple_data_to_py_data(self, table: Table, tuple_data: TupleData, is_pk_only: bool = False) -> dict:
-        if not is_pk_only:
-            return {column.name: MAP__PG_DTYPE__PY_DTYPE.get(column.dtype, str)(datum.value) for column, datum in zip(table.columns, tuple_data.data)}
-        else:
-            table_columns = [column for column in table.columns if column.pk]
-            return {column.name: MAP__PG_DTYPE__PY_DTYPE.get(column.dtype, str)(datum.value) for column, datum in zip(table_columns, tuple_data.data) if column.pk}
-
     def decode(self, msg: ReplicationMessage) -> list[TransactionEvent]:
         msg_type = msg.payload[:1].decode('utf-8')
         match msg_type:
@@ -365,7 +367,7 @@ class Decoder:
             replication_msg=msg,
             transaction=self.transaction,
             table=self.map__relation_oid__table[insert.relation_oid],
-            data=self.convert_tuple_data_to_py_data(self.map__relation_oid__table[insert.relation_oid], insert.new_tuple),
+            data=convert_tuple_data_to_py_data(self.map__relation_oid__table[insert.relation_oid], insert.new_tuple),
         )]
 
     def decode_update(self, msg: ReplicationMessage) -> list[TransactionEvent]:
@@ -378,7 +380,7 @@ class Decoder:
                 replication_msg=msg,
                 transaction=self.transaction,
                 table=self.map__relation_oid__table[update.relation_oid],
-                data=self.convert_tuple_data_to_py_data(self.map__relation_oid__table[update.relation_oid], update.old_tuple, is_pk_only=update.old_tuple_byte == 'K'),
+                data=convert_tuple_data_to_py_data(self.map__relation_oid__table[update.relation_oid], update.old_tuple, is_pk_only=update.old_tuple_byte == 'K'),
             ))
 
         transaction_events.append(TransactionEvent(
@@ -386,7 +388,7 @@ class Decoder:
             replication_msg=msg,
             transaction=self.transaction,
             table=self.map__relation_oid__table[update.relation_oid],
-            data=self.convert_tuple_data_to_py_data(self.map__relation_oid__table[update.relation_oid], update.new_tuple),
+            data=convert_tuple_data_to_py_data(self.map__relation_oid__table[update.relation_oid], update.new_tuple),
         ))
 
         return transaction_events
@@ -399,7 +401,7 @@ class Decoder:
             replication_msg=msg,
             transaction=self.transaction,
             table=self.map__relation_oid__table[delete.relation_oid],
-            data=self.convert_tuple_data_to_py_data(self.map__relation_oid__table[delete.relation_oid], delete.old_tuple, is_pk_only=delete.old_tuple_byte == 'K'),
+            data=convert_tuple_data_to_py_data(self.map__relation_oid__table[delete.relation_oid], delete.old_tuple, is_pk_only=delete.old_tuple_byte == 'K'),
         )]
 
     def decode_truncate(self, msg: ReplicationMessage) -> list[TransactionEvent]:
