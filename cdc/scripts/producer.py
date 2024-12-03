@@ -14,6 +14,9 @@ from utill.my_pg_v2 import PG
 logger.remove()
 logger.add(sys.stdout, level='INFO')
 
+global stop
+stop = False
+
 PG_CONN_NAME = 'stream-local-postgres'
 
 
@@ -32,84 +35,91 @@ class AllDtype(Process):
     def run(self):
         logger.info(f'{AllDtype.__name__} started')
 
-        # Create table
-        self.pg.execute_query(
-            f'''
-            CREATE TABLE IF NOT EXISTS all_dtype (
-                id SERIAL PRIMARY KEY,
-                t_smallint SMALLINT,
-                t_int INTEGER,
-                t_bigint BIGINT,
-                t_varchar VARCHAR(100),
-                t_text TEXT,
-                t_json JSON,
-                t_double DOUBLE PRECISION,
-                t_bool BOOLEAN,
-                t_ts TIMESTAMPTZ,
-                t_dt TIMESTAMP,
-                t_date DATE,
-                t_time TIME,
-                t_byte BYTEA
-            );
-            ALTER TABLE all_dtype REPLICA IDENTITY FULL;
-            ''',
-            return_df=False
-        )
-
-        while True:
+        try:
+            # Create table
             self.pg.execute_query(
                 f'''
-                INSERT INTO all_dtype (t_smallint, t_int, t_bigint, t_varchar, t_text, t_json, t_double, t_bool, t_ts, t_dt, t_date, t_time, t_byte) VALUES
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s),
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s),
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                CREATE TABLE IF NOT EXISTS all_dtype (
+                    id SERIAL PRIMARY KEY,
+                    t_smallint SMALLINT,
+                    t_int INTEGER,
+                    t_bigint BIGINT,
+                    t_varchar VARCHAR(100),
+                    t_text TEXT,
+                    t_json JSON,
+                    t_double DOUBLE PRECISION,
+                    t_bool BOOLEAN,
+                    t_ts TIMESTAMPTZ,
+                    t_dt TIMESTAMP,
+                    t_date DATE,
+                    t_time TIME,
+                    t_byte BYTEA
+                );
+                ALTER TABLE all_dtype REPLICA IDENTITY FULL;
                 ''',
-                # Row 1
-                random.randint(-32768, 32767),
-                random.randint(-2147483648, 2147483647),
-                random.randint(-9223372036854775808, 9223372036854775807),
-                'asd 🚫 bcd 😕🤓😿🐼🐖   xxxxxx\n🦕🐌🏟️🏡',
-                generate_random_string(1000),
-                json.dumps({'key': 'value'}),
-                random.random(),
-                random.choice([True, False, None]),
-                datetime.now(timezone.utc),
-                datetime.now(),
-                datetime.now().date(),
-                datetime.now().time(),
-                bytes(random.randint(0, 255)),
-                # Row 2
-                random.randint(-32768, 32767),
-                random.randint(-2147483648, 2147483647),
-                random.randint(-9223372036854775808, 9223372036854775807),
-                generate_random_string(100),
-                generate_random_string(1000),
-                json.dumps({'key': 'value'}),
-                random.random(),
-                random.choice([True, False, None]),
-                datetime.now(timezone.utc),
-                datetime.now(),
-                datetime.now().date(),
-                datetime.now().time(),
-                bytes(random.randint(0, 255)),
-                # Row 3
-                random.randint(-32768, 32767),
-                random.randint(-2147483648, 2147483647),
-                random.randint(-9223372036854775808, 9223372036854775807),
-                generate_random_string(100),
-                generate_random_string(1000),
-                json.dumps({'key': 'value'}),
-                random.random(),
-                random.choice([True, False, None]),
-                datetime.now(timezone.utc),
-                datetime.now(),
-                datetime.now().date(),
-                datetime.now().time(),
-                bytes(random.randint(0, 255)),
-                #
                 return_df=False
             )
-            time.sleep(randomize_sleep_time())
+
+            while True:
+                if stop:
+                    break
+
+                self.pg.execute_query(
+                    f'''
+                    INSERT INTO all_dtype (t_smallint, t_int, t_bigint, t_varchar, t_text, t_json, t_double, t_bool, t_ts, t_dt, t_date, t_time, t_byte) VALUES
+                    (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s),
+                    (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s),
+                    (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                    ''',
+                    # Row 1
+                    random.randint(-32768, 32767),
+                    random.randint(-2147483648, 2147483647),
+                    random.randint(-9223372036854775808, 9223372036854775807),
+                    'asd 🚫 bcd 😕🤓😿🐼🐖   xxxxxx\n🦕🐌🏟️🏡',
+                    generate_random_string(1000),
+                    json.dumps({'key': 'value'}),
+                    random.random(),
+                    random.choice([True, False, None]),
+                    datetime.now(timezone.utc),
+                    datetime.now(),
+                    datetime.now().date(),
+                    datetime.now().time(),
+                    bytes(random.randint(0, 255)),
+                    # Row 2
+                    random.randint(-32768, 32767),
+                    random.randint(-2147483648, 2147483647),
+                    random.randint(-9223372036854775808, 9223372036854775807),
+                    generate_random_string(100),
+                    generate_random_string(1000),
+                    json.dumps({'key': 'value'}),
+                    random.random(),
+                    random.choice([True, False, None]),
+                    datetime.now(timezone.utc),
+                    datetime.now(),
+                    datetime.now().date(),
+                    datetime.now().time(),
+                    bytes(random.randint(0, 255)),
+                    # Row 3
+                    random.randint(-32768, 32767),
+                    random.randint(-2147483648, 2147483647),
+                    random.randint(-9223372036854775808, 9223372036854775807),
+                    generate_random_string(100),
+                    generate_random_string(1000),
+                    json.dumps({'key': 'value'}),
+                    random.random(),
+                    random.choice([True, False, None]),
+                    datetime.now(timezone.utc),
+                    datetime.now(),
+                    datetime.now().date(),
+                    datetime.now().time(),
+                    bytes(random.randint(0, 255)),
+                    #
+                    return_df=False
+                )
+                time.sleep(randomize_sleep_time())
+        except:
+            stop = False
+            raise
 
 
 class Gen100(Process):
@@ -150,9 +160,13 @@ class Gen100(Process):
     def run(self):
         logger.info(f'{Gen100.__name__} started')
 
-        with ThreadPoolExecutor(max_workers=100) as executor:
-            futures = [executor.submit(self.insert, i) for i in range(100)]
-            [f.result() for f in futures]
+        try:
+            with ThreadPoolExecutor(max_workers=100) as executor:
+                futures = [executor.submit(self.insert, i) for i in range(100)]
+                [f.result() for f in futures]
+        except:
+            stop = False
+            raise
 
 
 class BigText(Process):
@@ -167,26 +181,33 @@ class BigText(Process):
     def run(self):
         logger.info(f'{BigText.__name__} started')
 
-        # Create table
-        self.pg.execute_query(
-            f'''
-            CREATE TABLE IF NOT EXISTS big_text (
-                id SERIAL PRIMARY KEY,
-                value1 TEXT
-            );
-            ALTER TABLE big_text REPLICA IDENTITY FULL;
-            ''',
-            return_df=False
-        )
+        try:
 
-        while True:
             self.pg.execute_query(
-                f'''INSERT INTO big_text (value1) VALUES (%s);''',
-                generate_random_string(random.randint(100_000, 10_000_000)),
-                #
+                f'''
+                CREATE TABLE IF NOT EXISTS big_text (
+                    id SERIAL PRIMARY KEY,
+                    value1 TEXT
+                );
+                ALTER TABLE big_text REPLICA IDENTITY FULL;
+                ''',
                 return_df=False
             )
-            time.sleep(60)
+
+            while True:
+                if stop:
+                    break
+
+                self.pg.execute_query(
+                    f'''INSERT INTO big_text (value1) VALUES (%s);''',
+                    generate_random_string(random.randint(100_000, 1_000_000)),
+                    #
+                    return_df=False
+                )
+                time.sleep(600)
+        except:
+            stop = False
+            raise
 
 
 class Truncate(Process):
@@ -201,36 +222,43 @@ class Truncate(Process):
     def run(self):
         logger.info(f'{Truncate.__name__} started')
 
-        # Create table
-        self.pg.execute_query(
-            f'''
-            CREATE TABLE IF NOT EXISTS ttruncate (
-                id SERIAL PRIMARY KEY,
-                value1 INTEGER
-            );
-            ALTER TABLE ttruncate REPLICA IDENTITY FULL;
-            ''',
-            return_df=False
-        )
-
-        while True:
+        try:
+            # Create table
             self.pg.execute_query(
-                f'''INSERT INTO ttruncate (value1) VALUES (%s), (%s), (%s), (%s), (%s);''',
-                random.randint(1, 1000),
-                random.randint(1, 1000),
-                random.randint(1, 1000),
-                random.randint(1, 1000),
-                random.randint(1, 1000),
-                #
-                return_df=False,
-            )
-            time.sleep(randomize_sleep_time())
-
-            self.pg.execute_query(
-                f'''TRUNCATE TABLE ttruncate;''',
+                f'''
+                CREATE TABLE IF NOT EXISTS ttruncate (
+                    id SERIAL PRIMARY KEY,
+                    value1 INTEGER
+                );
+                ALTER TABLE ttruncate REPLICA IDENTITY FULL;
+                ''',
                 return_df=False
             )
-            time.sleep(randomize_sleep_time())
+
+            while True:
+                if stop:
+                    break
+
+                self.pg.execute_query(
+                    f'''INSERT INTO ttruncate (value1) VALUES (%s), (%s), (%s), (%s), (%s);''',
+                    random.randint(1, 1000),
+                    random.randint(1, 1000),
+                    random.randint(1, 1000),
+                    random.randint(1, 1000),
+                    random.randint(1, 1000),
+                    #
+                    return_df=False,
+                )
+                time.sleep(randomize_sleep_time())
+
+                self.pg.execute_query(
+                    f'''TRUNCATE TABLE ttruncate;''',
+                    return_df=False
+                )
+                time.sleep(randomize_sleep_time())
+        except:
+            stop = False
+            raise
 
 
 class Delete(Process):
@@ -245,34 +273,41 @@ class Delete(Process):
     def run(self):
         logger.info(f'{Delete.__name__} started')
 
-        # Create table
-        self.pg.execute_query(
-            f'''
-            CREATE TABLE IF NOT EXISTS tdelete (
-                id SERIAL PRIMARY KEY,
-                value1 INTEGER
-            );
-            ALTER TABLE tdelete REPLICA IDENTITY FULL;
-            ''',
-            return_df=False
-        )
-
-        while True:
-            # Insert
+        try:
+            # Create table
             self.pg.execute_query(
-                f'''INSERT INTO tdelete (value1) VALUES (%s);''',
-                random.randint(1, 1000),
-                #
-                return_df=False,
-            )
-            time.sleep(randomize_sleep_time())
-
-            # Delete
-            self.pg.execute_query(
-                f'''DELETE FROM tdelete;''',
+                f'''
+                CREATE TABLE IF NOT EXISTS tdelete (
+                    id SERIAL PRIMARY KEY,
+                    value1 INTEGER
+                );
+                ALTER TABLE tdelete REPLICA IDENTITY FULL;
+                ''',
                 return_df=False
             )
-            time.sleep(randomize_sleep_time())
+
+            while True:
+                if stop:
+                    break
+
+                # Insert
+                self.pg.execute_query(
+                    f'''INSERT INTO tdelete (value1) VALUES (%s);''',
+                    random.randint(1, 1000),
+                    #
+                    return_df=False,
+                )
+                time.sleep(randomize_sleep_time())
+
+                # Delete
+                self.pg.execute_query(
+                    f'''DELETE FROM tdelete;''',
+                    return_df=False
+                )
+                time.sleep(randomize_sleep_time())
+        except Exception as e:
+            stop = False
+            raise
 
 
 class Update(Process):
@@ -287,51 +322,53 @@ class Update(Process):
     def run(self):
         logger.info(f'{Update.__name__} started')
 
-        # Create table
-        self.pg.execute_query(
-            f'''
-            CREATE TABLE IF NOT EXISTS tupdate (
-                id SERIAL PRIMARY KEY,
-                value1 INTEGER
-            );
-            ALTER TABLE tupdate REPLICA IDENTITY FULL;
-            ''',
-            return_df=False
-        )
-
-        while True:
-            # Insert
+        try:
+            # Create table
             self.pg.execute_query(
-                f'''INSERT INTO tupdate (value1) VALUES (%s);''',
-                random.randint(1, 1000),
-                #
-                return_df=False,
-            )
-            time.sleep(randomize_sleep_time())
-
-            # Update
-            self.pg.execute_query(
-                f'''UPDATE tupdate SET value1 = %s;''',
-                random.randint(1, 1000),
-                #
+                f'''
+                CREATE TABLE IF NOT EXISTS tupdate (
+                    id SERIAL PRIMARY KEY,
+                    value1 INTEGER
+                );
+                ALTER TABLE tupdate REPLICA IDENTITY FULL;
+                ''',
                 return_df=False
             )
-            time.sleep(randomize_sleep_time())
+
+            while True:
+                if stop:
+                    break
+
+                # Insert
+                self.pg.execute_query(
+                    f'''INSERT INTO tupdate (value1) VALUES (%s);''',
+                    random.randint(1, 1000),
+                    #
+                    return_df=False,
+                )
+                time.sleep(randomize_sleep_time())
+
+                # Update
+                self.pg.execute_query(
+                    f'''UPDATE tupdate SET value1 = %s;''',
+                    random.randint(1, 1000),
+                    #
+                    return_df=False
+                )
+                time.sleep(randomize_sleep_time())
+        except:
+            stop = False
+            raise
 
 
 if __name__ == '__main__':
-    p1 = AllDtype()
-    p2 = Gen100()
-    p3 = BigText()
-    p4 = Truncate()
-    p5 = Delete()
-    p6 = Update()
-
-    for p in [p1, p2, p3, p4, p5, p6]:
+    ps = [
+        AllDtype(),
+        Gen100(),
+        # BigText(),
+        Truncate(),
+        Delete(),
+        Update(),
+    ]
+    for p in ps:
         p.start()
-
-    # Exit if any of the processes fail
-    for p in [p1, p2, p3, p4, p5, p6]:
-        p.join()
-        if p.exitcode != 0:
-            sys.exit(1)
