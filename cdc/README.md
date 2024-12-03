@@ -41,3 +41,9 @@ CREATE PUBLICATION publ_stream FOR ALL TABLES;
 
 -- Replication slot will be automatically created by the streamer
 ```
+
+## Replication schema
+
+```sql
+CREATE DATABASE repl OWNER repl;
+```
