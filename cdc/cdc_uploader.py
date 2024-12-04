@@ -23,28 +23,15 @@ dotenv.load_dotenv()
 
 SA_FILENAME = os.environ['SA_FILENAME']
 
-GCP_PROJECT_ID = os.environ['GCP_PROJECT_ID']
-
-GCS_BUCKET = os.environ['GCS_BUCKET']
-
 REPL_DB_NAME = os.environ['REPL_DB_NAME']
-
-META_DB_HOST = os.environ['META_DB_HOST']
-META_DB_PORT = int(os.environ['META_DB_PORT'])
-META_DB_USER = os.environ['META_DB_USER']
-META_DB_PASSWORD = os.environ['META_DB_PASSWORD']
-META_DB_NAME = os.environ['META_DB_NAME']
 
 PROTO_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'proto')
 
 UPLOAD_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'upload')
 UPLOADER_THREADS = int(os.environ['UPLOADER_THREADS'])
 
-MERGER_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'merge')
-
 MIGRATION_TABLE = 'public.migration'
 MIGRATION_DIR = 'migrations'
-
 
 META_PG_COLUMNS = [
     Column(pk=False, name='__m_op', dtype_oid=0, dtype='varchar', bq_dtype='', proto_dtype='string', is_nullable=True, ordinal_position=0),

@@ -36,18 +36,18 @@ REPL_DB_NAME = os.environ['REPL_DB_NAME']
 REPL_PUBL_NAME = os.environ['REPL_PUBL_NAME']
 REPL_SLOT_NAME = os.environ['REPL_SLOT_NAME']
 
+STREAM_OUTPUT_DIR = os.environ['STREAM_OUTPUT_DIR']
+UPLOAD_OUTPUT_DIR = os.environ['UPLOAD_OUTPUT_DIR']
+
 STREAM_NO_MESSAGE_REPORT_INTERVAL_S = int(os.environ['STREAM_NO_MESSAGE_REPORT_INTERVAL_S'])  # If no message received for this time, report it
 STREAM_DELAY_PRINT_INTERVAL_S = int(os.environ['STREAM_DELAY_PRINT_INTERVAL_S'])
 
-FILEWRITER_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'stream')
-FILEWRITER_MAX_FILE_SIZE_B = int(os.environ['FILEWRITER_MAX_FILE_SIZE_B'])  # If a single file exceeds this size, close all files
-FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S = int(os.environ['FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S'])  # If a file is opened for this time, close all files
-FILEWRITER_NO_MESSAGE_WAIT_TIME_S = int(os.environ['FILEWRITER_NO_MESSAGE_WAIT_TIME_S'])  # If no message received for this time, close all files
+STREAM_FILEWRITER_MAX_FILE_SIZE_B = int(os.environ['STREAM_FILEWRITER_MAX_FILE_SIZE_B'])  # If a single file exceeds this size, close all files
+STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S = int(os.environ['STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S'])  # If a file is opened for this time, close all files
+STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S = int(os.environ['STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S'])  # If no message received for this time, close all files
 
-CONSUMER_QUEUE_MAX_SIZE = int(os.environ['CONSUMER_QUEUE_MAX_SIZE'])
-CONSUMER_POLL_INTERVAL_S = int(os.environ['CONSUMER_POLL_INTERVAL_S'])  # Number of seconds to wait if there's no message in the queue
-
-UPLOAD_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'upload')
+STREAM_CONSUMER_QUEUE_MAX_SIZE = int(os.environ['STREAM_CONSUMER_QUEUE_MAX_SIZE'])
+STREAM_CONSUMER_POLL_INTERVAL_S = int(os.environ['STREAM_CONSUMER_POLL_INTERVAL_S'])  # Number of seconds to wait if there's no message in the queue
 
 
 class LogicalReplicationStreamer:
@@ -62,7 +62,7 @@ class LogicalReplicationStreamer:
 
         self.decoder = Decoder(self.dsn)
 
-        self.q = Queue(maxsize=CONSUMER_QUEUE_MAX_SIZE)
+        self.q = Queue(maxsize=STREAM_CONSUMER_QUEUE_MAX_SIZE)
 
         self.transaction = None
         self.send_feedback = False
@@ -150,8 +150,8 @@ class LogicalReplicationStreamer:
                             self.msg_count = 0
 
                     # Close all files if it's opened for too long
-                    if (now - self.latest_all_file_closed_ts).total_seconds() > FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S:
-                        self.close_all_files(f'all files opened for {FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S} seconds')
+                    if (now - self.latest_all_file_closed_ts).total_seconds() > STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S:
+                        self.close_all_files(f'all files opened for {STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S} seconds')
 
                     self.latest_msg_ts = now
 
@@ -161,10 +161,10 @@ class LogicalReplicationStreamer:
                         latest_no_msg_print_ts = now
 
                     # Close all files if no message received for too long
-                    if (now - self.latest_all_file_closed_ts).total_seconds() > FILEWRITER_NO_MESSAGE_WAIT_TIME_S:
-                        self.close_all_files(f'no message for {FILEWRITER_NO_MESSAGE_WAIT_TIME_S} seconds')
+                    if (now - self.latest_all_file_closed_ts).total_seconds() > STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S:
+                        self.close_all_files(f'no message for {STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S} seconds')
 
-                    time.sleep(CONSUMER_POLL_INTERVAL_S)
+                    time.sleep(STREAM_CONSUMER_POLL_INTERVAL_S)
 
                 if self.send_feedback:
                     if not self.latest_lsn:
@@ -186,7 +186,7 @@ class LogicalReplicationStreamer:
 
     def write_to_file(self, decoded_msg: TransactionEvent) -> None:
         table_name = f'{decoded_msg.table.db}.{decoded_msg.table.tschema}.{decoded_msg.table.name}'  # Construct table fqn
-        filename = os.path.join(FILEWRITER_OUTPUT_DIR, f'{decoded_msg.transaction.commit_ts.strftime("%Y%m%d%H%M%S")}-{table_name}.json')
+        filename = os.path.join(STREAM_OUTPUT_DIR, f'{decoded_msg.transaction.commit_ts.strftime("%Y%m%d%H%M%S")}-{table_name}.json')
         dirname = os.path.dirname(filename)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
@@ -241,8 +241,8 @@ class LogicalReplicationStreamer:
         self.opened_files[table_name].size += data_size
 
         # Close all files if this file is too big
-        if self.opened_files[table_name].size > FILEWRITER_MAX_FILE_SIZE_B:
-            self.close_all_files(f'table \'{table_name}\' size exceeds {FILEWRITER_MAX_FILE_SIZE_B} bytes')
+        if self.opened_files[table_name].size > STREAM_FILEWRITER_MAX_FILE_SIZE_B:
+            self.close_all_files(f'table \'{table_name}\' size exceeds {STREAM_FILEWRITER_MAX_FILE_SIZE_B} bytes')
 
     def close_all_files(self, reason: str) -> None:
         is_any_closed = False
@@ -270,15 +270,15 @@ class LogicalReplicationStreamer:
 
 if __name__ == '__main__':
     # Create output directory if not exists
-    if not os.path.exists(FILEWRITER_OUTPUT_DIR):
-        os.makedirs(FILEWRITER_OUTPUT_DIR)
-        logger.info(f'Create stream output dir: {FILEWRITER_OUTPUT_DIR}')
+    if not os.path.exists(STREAM_OUTPUT_DIR):
+        os.makedirs(STREAM_OUTPUT_DIR)
+        logger.info(f'Create stream output dir: {STREAM_OUTPUT_DIR}')
     if not os.path.exists(UPLOAD_OUTPUT_DIR):
         os.makedirs(UPLOAD_OUTPUT_DIR)
         logger.info(f'Create upload output dir: {UPLOAD_OUTPUT_DIR}')
 
     # Clear stream output directory
-    [os.remove(file) for file in glob.glob(f'{FILEWRITER_OUTPUT_DIR}/*.json')]
+    [os.remove(file) for file in glob.glob(f'{STREAM_OUTPUT_DIR}/*.json')]
 
     # Run the streamer
     logger.info('Starting cdc streamer...')
