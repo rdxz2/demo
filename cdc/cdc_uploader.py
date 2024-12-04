@@ -42,7 +42,7 @@ META_PG_COLUMNS = [
     Column(pk=False, name='__tx_lsn', dtype_oid=0, dtype='bigint', bq_dtype='', proto_dtype='int64', is_nullable=True, ordinal_position=0),
     Column(pk=False, name='__tx_commit_ts', dtype_oid=0, dtype='timestamp with time zone', bq_dtype='', proto_dtype='int64', is_nullable=True, ordinal_position=0),
     Column(pk=False, name='__tx_id', dtype_oid=0, dtype='int', bq_dtype='', proto_dtype='int32', is_nullable=True, ordinal_position=0),
-    # Column(pk=False, name='__tb', dtype_oid=0, dtype='json', bq_dtype='', proto_dtype='string', is_nullable=True, ordinal_position=0),
+    Column(pk=False, name='__tb', dtype_oid=0, dtype='json', bq_dtype='', proto_dtype='string', is_nullable=True, ordinal_position=0),
 ]
 META_MAP_PG_COLUMNS = {column.name: column.dtype for column in META_PG_COLUMNS}
 
@@ -116,11 +116,11 @@ class Uploader:
             with open(filename, 'r') as f:
                 while line := f.readline():
                     data: dict = json.loads(line)
-                    del data['__tb']  # Prevent table schema to be uploaded
+                    # del data['__tb']  # Strip-off table schema
                     for key in data.keys():
                         if map__column__dtype[key] in {'jsonb', 'json'}:
                             data[key] = json.dumps(data[key])
-                        elif map__column__dtype[key] in {'timestamp with time zone'}:
+                        if map__column__dtype[key] in {'timestamp with time zone'}:
                             data[key] = int(datetime.fromisoformat(data[key]).timestamp() * 1000000)  # Convert to microseconds
                         elif map__column__dtype[key] in {'timestamp without time zone'}:
                             data[key] = datetime.fromisoformat(data[key]).strftime('%Y-%m-%d %H:%M:%S')  # Convert to string
