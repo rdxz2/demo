@@ -1,3 +1,4 @@
+import json
 import psycopg2
 import psycopg2.extras
 
@@ -31,6 +32,8 @@ MAP__PG_DTYPE__PY_DTYPE = {  # Other than this is considered 'str'
     'double precision': float,
     'boolean': bool,
     'bool': bool,
+    'json': json.loads,
+    'jsonb': json.loads,
 }
 
 MAP__PG_DTYPE__BQ_DTYPE = {  # Other than this is considered 'STRING'
@@ -44,6 +47,7 @@ MAP__PG_DTYPE__BQ_DTYPE = {  # Other than this is considered 'STRING'
     'boolean': 'BOOL',
     'bool': 'BOOL',
     'json': 'JSON',
+    'jsonb': 'JSON',
 }
 
 MAP__PG_DTYPE__PROTO_DTYPE = {  # Other than this is considered 'string'
@@ -56,6 +60,8 @@ MAP__PG_DTYPE__PROTO_DTYPE = {  # Other than this is considered 'string'
     'double precision': 'float',
     'boolean': 'bool',
     'bool': 'bool',
+    'json': 'string',
+    'jsonb': 'string',
 }
 
 
