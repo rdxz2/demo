@@ -47,3 +47,20 @@ CREATE PUBLICATION publ_stream FOR ALL TABLES;
 ```sql
 CREATE DATABASE repl OWNER repl;
 ```
+
+# Redis installation
+
+For Discord bot utilization
+
+```sh
+docker volume create rd__data
+
+docker run \
+    --name rd \
+    -d \
+    -p 6379:6379 \
+    -v rd__data:/data \
+    redis:7.4 \
+    redis-server \
+    --save 60 1
+```
