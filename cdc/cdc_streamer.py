@@ -68,7 +68,6 @@ class LogicalReplicationStreamer:
         self.send_feedback = False
         self.latest_lsn = None
         self.msg_count = 0
-        self.latest_delay_print_ts = datetime(1970, 1, 1, tzinfo=timezone.utc)
         self.latest_msg_ts = datetime.now(tz=timezone.utc)
         self.latest_all_file_closed_ts = datetime.now(tz=timezone.utc)
         self.opened_files: dict[str, FileDescriptor] = {}  # { table_name: FileDescriptor }
@@ -129,6 +128,7 @@ class LogicalReplicationStreamer:
     def consumer(self) -> None:
         logger.debug('Consumer thread started...')
         latest_no_msg_print_ts = datetime.now(tz=timezone.utc)
+        latest_delay_print_ts = datetime.now(tz=timezone.utc)
         try:
             while not self.exception_event.is_set():
                 now = datetime.now(tz=timezone.utc)
@@ -144,9 +144,9 @@ class LogicalReplicationStreamer:
                     for decoded_msg in decoded_msgs:
                         self.write_to_file(decoded_msg)
                         # Print the delay
-                        if (now - self.latest_delay_print_ts).total_seconds() > STREAM_DELAY_PRINT_INTERVAL_S:
+                        if (now - latest_delay_print_ts).total_seconds() > STREAM_DELAY_PRINT_INTERVAL_S:
                             logger.info(f'TX_ID: {decoded_msg.transaction.xid}, TX_LSN: {decoded_msg.transaction.lsn}, TX_DELAY: {(now - decoded_msg.transaction.commit_ts).total_seconds()} s, MSGs: {self.msg_count}')
-                            self.latest_delay_print_ts = now
+                            latest_delay_print_ts = now
                             self.msg_count = 0
 
                     # Close all files if it's opened for too long
