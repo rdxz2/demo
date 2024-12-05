@@ -20,14 +20,14 @@ docker run \
     postgres:16
 ```
 
-## Replication
+## Streamed database
 
 ```sql
-CREATE USER repl WITH PASSWORD '12321';
-CREATE DATABASE stream;
-
-ALTER ROLE repl WITH REPLICATION LOGIN;
 ALTER SYSTEM SET wal_level = logical;
+SHOW wal_level;
+
+CREATE USER repl WITH PASSWORD '12321';
+ALTER ROLE repl WITH REPLICATION LOGIN;
 ```
 
 ```sh
@@ -35,14 +35,14 @@ docker restart pg
 ```
 
 ```sql
+CREATE DATABASE stream;
 \c stream
-
 CREATE PUBLICATION publ_stream FOR ALL TABLES;
 
 -- Replication slot will be automatically created by the streamer
 ```
 
-## Replication schema
+## Replication metadata database
 
 ```sql
 CREATE DATABASE repl OWNER repl;
