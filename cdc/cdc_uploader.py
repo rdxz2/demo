@@ -127,6 +127,10 @@ class Uploader:
                     yield data
 
     def write_pending(self, filenames, bq_table_log_fqn: str, pg_table: Table, pb2_class):
+        """
+        Source: https://cloud.google.com/bigquery/docs/write-api-batch#batch_load_data_using_pending_type
+        """
+
         # Create a batch of row data by appending proto2 serialized bytes to the
         # serialized_rows repeated field.
         proto_rows = types.ProtoRows()
