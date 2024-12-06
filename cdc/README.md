@@ -37,30 +37,7 @@ docker restart pg
 ```sql
 CREATE DATABASE stream;
 \c stream
-CREATE PUBLICATION publ_stream FOR ALL TABLES;
+CREATE PUBLICATION "stream" FOR ALL TABLES;
 
 -- Replication slot will be automatically created by the streamer
-```
-
-## Replication metadata database
-
-```sql
-CREATE DATABASE repl OWNER repl;
-```
-
-# Redis installation
-
-For Discord bot utilization
-
-```sh
-docker volume create rd__data
-
-docker run \
-    --name rd \
-    -d \
-    -p 6379:6379 \
-    -v rd__data:/data \
-    redis:7.4 \
-    redis-server \
-    --save 60 1
 ```
