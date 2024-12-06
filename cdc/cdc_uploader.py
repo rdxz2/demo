@@ -30,9 +30,6 @@ PROTO_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'proto')
 UPLOAD_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'upload')
 UPLOADER_THREADS = int(os.environ['UPLOADER_THREADS'])
 
-MIGRATION_TABLE = 'public.migration'
-MIGRATION_DIR = 'migrations'
-
 META_PG_COLUMNS = [
     Column(pk=False, name='__m_op', dtype_oid=0, dtype='varchar', bq_dtype='', proto_dtype='string', is_nullable=True, ordinal_position=0),
     Column(pk=False, name='__m_lsn', dtype_oid=0, dtype='bigint', bq_dtype='', proto_dtype='int64', is_nullable=True, ordinal_position=0),
@@ -63,7 +60,6 @@ class Uploader:
         self.bq_client = bigquery.Client.from_service_account_json(SA_FILENAME)
         self.dataset_id_log = f'log__{REPL_DB_NAME}'
         self.dataset_id_main = REPL_DB_NAME
-        self.write_client = bigquery_storage_v1.BigQueryWriteClient.from_service_account_json(SA_FILENAME)
         self.append_rows_streams: dict[str, writer.AppendRowsStream] = {}
         logger.debug(f'Connected to BQ: {self.bq_client.project}')
 
@@ -245,6 +241,7 @@ class Uploader:
                     {columns_str}
                     )
                     PARTITION BY DATE(`__tx_commit_ts`)
+                    CLUSTER BY (`__tx_commit_ts`)
                     OPTIONS (
                         require_partition_filter=true
                     );
