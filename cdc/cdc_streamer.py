@@ -31,7 +31,7 @@ dotenv.load_dotenv()
 REPL_DB_HOST = os.environ['REPL_DB_HOST']
 REPL_DB_PORT = int(os.environ['REPL_DB_PORT'])
 REPL_DB_USER = os.environ['REPL_DB_USER']
-REPL_DB_PASSWORD = os.environ['REPL_DB_PASSWORD']
+REPL_DB_PASS = os.environ['REPL_DB_PASS']
 REPL_DB_NAME = os.environ['REPL_DB_NAME']
 REPL_PUBL_NAME = os.environ['REPL_PUBL_NAME']
 REPL_SLOT_NAME = os.environ['REPL_SLOT_NAME']
@@ -282,5 +282,5 @@ if __name__ == '__main__':
 
     # Run the streamer
     logger.info('Starting cdc streamer...')
-    streamer = LogicalReplicationStreamer(host=REPL_DB_HOST, port=REPL_DB_PORT, user=REPL_DB_USER, password=REPL_DB_PASSWORD, database=REPL_DB_NAME)
+    streamer = LogicalReplicationStreamer(host=REPL_DB_HOST, port=REPL_DB_PORT, user=REPL_DB_USER, password=REPL_DB_PASS, database=REPL_DB_NAME)
     streamer.run()
