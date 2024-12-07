@@ -9,12 +9,12 @@ from loguru import logger
 from typing import Optional
 
 from data import (
-    Column,
+    PgcColumn,
     Datum,
     EnumOp,
     RelationColumn,
     ReplicationMessage,
-    Table,
+    PgTable,
     Transaction,
     TransactionEvent,
     TupleData,
@@ -74,7 +74,7 @@ def convert_bytes_to_int(input_bytes: bytes) -> int: return int.from_bytes(input
 def convert_bytes_to_utf8(input_bytes: bytes) -> str: return input_bytes.decode('utf-8')  # UTF-8
 
 
-def convert_tuple_data_to_py_data(table: Table, tuple_data: TupleData, is_pk_only: bool = False) -> dict:
+def convert_tuple_data_to_py_data(table: PgTable, tuple_data: TupleData, is_pk_only: bool = False) -> dict:
     if not is_pk_only:
         return {column.name: MAP__PG_DTYPE__PY_DTYPE.get(column.dtype, str)(datum.value) for column, datum in zip(table.columns, tuple_data.data)}
     else:
@@ -262,7 +262,7 @@ class Decoder:
         self.transaction = None
 
         self.map__dtype_oid__dtype = {}  # { oid: dtype }
-        self.map__relation_oid__table: dict[int, Table] = {}  # { oid: PgTable }
+        self.map__relation_oid__table: dict[int, PgTable] = {}  # { oid: PgTable }
 
         self.conn = psycopg2.connect(dsn)
         self.cursor = self.conn.cursor()
@@ -314,7 +314,7 @@ class Decoder:
 
         # Translate table (relation)
         if relation.oid not in self.map__relation_oid__table:
-            self.map__relation_oid__table[relation.oid] = Table(
+            self.map__relation_oid__table[relation.oid] = PgTable(
                 db=self.db_name,
                 schema=relation.schema,
                 name=relation.name,
@@ -341,7 +341,7 @@ class Decoder:
                     self.map__dtype_oid__dtype[relation_column.dtype_oid] = self.fetch_oid_dtype(relation_column.dtype_oid, relation_column.atttypmod)
 
                 # Update table columns
-                self.map__relation_oid__table[relation.oid].columns.append(Column(
+                self.map__relation_oid__table[relation.oid].columns.append(PgcColumn(
                     pk=relation_column.pk,
                     name=relation_column.name,
                     dtype_oid=relation_column.dtype_oid,
