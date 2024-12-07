@@ -5,6 +5,7 @@ import importlib
 import json
 import os
 import time
+import traceback
 
 from concurrent.futures import ThreadPoolExecutor
 from data import Column, Table, BqColumn, BqTable
@@ -14,6 +15,8 @@ from google.cloud.bigquery_storage_v1 import types, writer
 from google.protobuf import descriptor_pb2
 from loguru import logger
 from typing import Any
+
+from alert import send_message
 
 # import logging
 # logging.basicConfig(level=logging.DEBUG)
@@ -29,6 +32,8 @@ PROTO_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'proto')
 
 UPLOAD_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'upload')
 UPLOADER_THREADS = int(os.environ['UPLOADER_THREADS'])
+
+DISCORD_WEBHOOK_URL = os.environ['DISCORD_WEBHOOK_URL']
 
 META_PG_COLUMNS = [
     Column(pk=False, name='__m_op', dtype_oid=0, dtype='varchar', bq_dtype='', proto_dtype='string', is_nullable=True, ordinal_position=0),
@@ -79,6 +84,9 @@ class Uploader:
                 self.map__bq_table_fqn__bq_table[result['fqn']] = BqTable(name=result['fqn'])
             self.map__bq_table_fqn__bq_table[result['fqn']].columns.append(BqColumn(name=result['column_name'], dtype=result['dtype']))
         logger.debug('Fetched existing tables')
+
+        # Send starting message
+        send_message(f'_cdc_uploader [{REPL_DB_NAME}]_ started')
 
     def generate_and_compile_proto(self, table: Table):
         proto_filename = os.path.join(PROTO_OUTPUT_DIR, f'{table.proto_filename}.proto')
@@ -308,7 +316,12 @@ if __name__ == '__main__':
             futures = [thread_pool_executor.submit(uploader.upload, pg_table_fqn.removesuffix('.json'), filenames) for pg_table_fqn, filenames in grouped_filenames.items()]
             # Wait for all threads to finish before processing the next batch
             for future in futures:
-                group = future.result()
+                try:
+                    future.result()
+                except Exception as e:
+                    t = traceback.format_exc()
+                    send_message(f'_cdc_uploader [{REPL_DB_NAME}]_ error: **{e}**\n```{t}```')
+                    raise e
 
         else:
             time.sleep(1)
