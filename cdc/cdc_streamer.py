@@ -16,15 +16,10 @@ from loguru import logger
 from queue import Queue
 from threading import Thread
 
-from data import (
-    FileDescriptor,
-    ReplicationMessage,
-    TransactionEvent,
-)
-from decoder import (
-    Decoder,
-    json_serializer,
-)
+from alert import send_message
+from data import FileDescriptor, ReplicationMessage, TransactionEvent
+from decoder import Decoder, json_serializer
+
 
 dotenv.load_dotenv()
 
@@ -79,6 +74,8 @@ class LogicalReplicationStreamer:
         self.cursor = self.conn.cursor(cursor_factory=psycopg2.extras.ReplicationCursor)
         logger.debug(f'Connected to db: {REPL_DB_NAME} (Replication)')
 
+        send_message(f'_cdc_streamer [{REPL_DB_NAME}]_ started')
+
     def run(self) -> None:
         thread_stream = Thread(target=self.streamer, daemon=True)  # Spawn thread to start streaming from replication slot
         thread_consumer = Thread(target=self.consumer, daemon=True)  # Spawn thread to consume the streamed logical replication message
@@ -110,7 +107,9 @@ class LogicalReplicationStreamer:
             logger.debug(f'Replication started, publication name: \'{REPL_PUBL_NAME}\', replication slot name: \'{REPL_SLOT_NAME}\'')
             self.cursor.consume_stream(self.put_message_to_queue)
         except Exception as e:
-            logger.error(f'Error in streamer thread: {e}\n{traceback.format_exc()}')
+            t = traceback.format_exc()
+            send_message(f'_cdc_streamer [{REPL_DB_NAME}]_ streamer error: **{e}**\n```{t}```')
+            logger.error(f'Error in streamer thread: {e}\n{t}')
             self.exception_event.set()
             raise e
         finally:
@@ -179,7 +178,9 @@ class LogicalReplicationStreamer:
             return
 
         except Exception as e:
-            logger.error(f'Error in consumer thread: {e}\n{traceback.format_exc()}')
+            t = traceback.format_exc()
+            send_message(f'_cdc_streamer [{REPL_DB_NAME}]_ constumer error: **{e}**\n```{t}```')
+            logger.error(f'Error in consumer thread: {e}\n{t}')
             self.exception_event.set()
         finally:
             logger.warning('Gracefully stopped consumer thread')
