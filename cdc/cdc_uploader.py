@@ -32,6 +32,8 @@ PROTO_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'proto')
 
 UPLOAD_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'upload')
 UPLOADER_THREADS = int(os.environ['UPLOADER_THREADS'])
+UPLOADER_FILE_POLL_INTERVAL_S = int(os.environ['UPLOADER_FILE_POLL_INTERVAL_S'])
+UPLOADER_STREAM_CHUNK_SIZE_B = int(os.environ['UPLOADER_STREAM_CHUNK_SIZE_B'])
 
 DISCORD_WEBHOOK_URL = os.environ['DISCORD_WEBHOOK_URL']
 
@@ -313,15 +315,15 @@ if __name__ == '__main__':
                 grouped_filenames[pg_table_fqn].add(filename)
 
             # Process each group in a separate thread
-            futures = [thread_pool_executor.submit(uploader.upload, pg_table_fqn.removesuffix('.json'), filenames) for pg_table_fqn, filenames in grouped_filenames.items()]
+            futures = [(pg_table_fqn, filenames, thread_pool_executor.submit(uploader.upload, pg_table_fqn.removesuffix('.json'), filenames)) for pg_table_fqn, filenames in grouped_filenames.items()]
             # Wait for all threads to finish before processing the next batch
-            for future in futures:
+            for pg_table_fqn, filenames, future in futures:
                 try:
                     future.result()
                 except Exception as e:
                     t = traceback.format_exc()
-                    send_message(f'_cdc_uploader [{REPL_DB_NAME}]_ error: **{e}**\n```{t}```')
+                    send_message(f'_cdc_uploader [{REPL_DB_NAME}]_ error: **{e}**\nTable: **{pg_table_fqn}**\nFiles:\n```{filenames}```Traceback:\n```{t}```')
                     raise e
 
         else:
-            time.sleep(1)
+            time.sleep(UPLOADER_FILE_POLL_INTERVAL_S)
