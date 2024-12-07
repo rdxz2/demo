@@ -5,6 +5,7 @@ import importlib
 import json
 import logging
 import os
+import sys
 import time
 import traceback
 
@@ -65,9 +66,10 @@ def read_file_last_line(file: str) -> str:
 class Uploader:
     def __init__(self) -> None:
         self.bq_client = bigquery.Client.from_service_account_json(SA_FILENAME)
+        self.write_client = bigquery_storage_v1.BigQueryWriteClient.from_service_account_json(SA_FILENAME)
         self.dataset_id_log = f'log__{REPL_DB_NAME}'
         self.dataset_id_main = REPL_DB_NAME
-        self.append_rows_streams: dict[str, writer.AppendRowsStream] = {}
+        # self.append_rows_streams: dict[str, writer.AppendRowsStream] = {}
         logger.debug(f'Connected to BQ: {self.bq_client.project}')
 
         # Get existing table columns
@@ -87,8 +89,8 @@ class Uploader:
             self.map__bq_table_fqn__bq_table[result['fqn']].columns.append(BqColumn(name=result['column_name'], dtype=result['dtype']))
         logger.debug('Fetched existing tables')
 
-        # Send starting message
-        send_message(f'_cdc_uploader [{REPL_DB_NAME}]_ started')
+        # # Send starting message
+        # send_message(f'_cdc_uploader [{REPL_DB_NAME}]_ started')
 
     def generate_and_compile_proto(self, table: PgTable):
         proto_filename = os.path.join(PROTO_OUTPUT_DIR, f'{table.proto_filename}.proto')
@@ -118,7 +120,7 @@ class Uploader:
     def generate_raw_data(self, filenames: set[str], pg_table: PgTable):
         map__column__dtype = {column.name: column.dtype for column in pg_table.columns}
         map__column__dtype.update(META_MAP_PG_COLUMNS)
-        for filename in sorted(filenames):  # Ensure transactions order
+        for filename in filenames:
             with open(filename, 'r') as f:
                 while line := f.readline():
                     data: dict = json.loads(line)
@@ -139,22 +141,37 @@ class Uploader:
 
         # Create a batch of row data by appending proto2 serialized bytes to the
         # serialized_rows repeated field.
-        proto_rows = types.ProtoRows()
-        for data in self.generate_raw_data(filenames, pg_table):
-            proto_rows.serialized_rows.append(pb2_class(**data).SerializeToString())
+        list__proto_rows = [types.ProtoRows()]
+        current_chunk_no = 0
+        current_chunk_size = 0
+        for data in self.generate_raw_data(sorted(filenames), pg_table):  # Ensure transactions order
+            # Serialize data
+            data = pb2_class(**data).SerializeToString()
+            data_size = sys.getsizeof(data)
+            if data_size > UPLOADER_STREAM_CHUNK_SIZE_B:
+                raise ValueError(f'{bq_table_log_fqn}: data size {data_size} exceeds the limit {UPLOADER_STREAM_CHUNK_SIZE_B} bytes')
 
-        write_client = bigquery_storage_v1.BigQueryWriteClient.from_service_account_json(SA_FILENAME)
-        parent = write_client.table_path(*bq_table_log_fqn.split('.'))
-        write_stream = types.WriteStream()
+            # Manage chunks
+            list__proto_rows[current_chunk_no].serialized_rows.append(data)
+            current_chunk_size += data_size
+            if current_chunk_size > UPLOADER_STREAM_CHUNK_SIZE_B:
+                logger.debug(f'{bq_table_log_fqn}: chunk size {current_chunk_size} exceeds the limit {UPLOADER_STREAM_CHUNK_SIZE_B} bytes')
+                current_chunk_no += 1
+                current_chunk_size = 0
+                list__proto_rows.append(types.ProtoRows())
+
+        parent = self.write_client.table_path(*bq_table_log_fqn.split('.'))
+        # write_stream = types.WriteStream()
 
         # When creating the stream, choose the type. Use the PENDING type to wait
         # until the stream is committed before it is visible. See:
         # https://cloud.google.com/bigquery/docs/reference/storage/rpc/google.cloud.bigquery.storage.v1#google.cloud.bigquery.storage.v1.WriteStream.Type
-        write_stream.type_ = types.WriteStream.Type.PENDING
-        write_stream = write_client.create_write_stream(
-            parent=parent, write_stream=write_stream
-        )
-        stream_name = write_stream.name
+        # write_stream.type_ = types.WriteStream.Type.PENDING
+        # write_stream = self.write_client.create_write_stream(
+        #     parent=parent, write_stream=write_stream
+        # )
+        # stream_name = write_stream.name
+        stream_name = f'{parent}/_default'
 
         # Create a template with fields needed for the first request.
         request_template = types.AppendRowsRequest()
@@ -174,9 +191,7 @@ class Uploader:
 
         # Some stream types support an unbounded number of requests. Construct an
         # AppendRowsStream to send an arbitrary number of requests to a stream.
-        if bq_table_log_fqn not in self.append_rows_streams:
-            self.append_rows_streams[bq_table_log_fqn] = writer.AppendRowsStream(write_client, request_template)
-        append_rows_stream = self.append_rows_streams[bq_table_log_fqn]
+        append_rows_stream = writer.AppendRowsStream(self.write_client, request_template)
 
         # Set an offset to allow resuming this stream if the connection breaks.
         # Keep track of which requests the server has acknowledged and resume the
@@ -185,32 +200,34 @@ class Uploader:
         # error, which can be safely ignored.
         #
         # The first request must always have an offset of 0.
-        request = types.AppendRowsRequest()
-        request.offset = 0
-        proto_data = types.AppendRowsRequest.ProtoData()
-        proto_data.rows = proto_rows
-        request.proto_rows = proto_data
+        for i, proto_rows in enumerate(list__proto_rows):
+            logger.debug(f'{bq_table_log_fqn}: sending chunk {i + 1}')
+            request = types.AppendRowsRequest()
+            # request.offset = 0
+            proto_data = types.AppendRowsRequest.ProtoData()
+            proto_data.rows = proto_rows
+            request.proto_rows = proto_data
 
-        response_future_1 = append_rows_stream.send(request)
-        response_future_1_result = response_future_1.result()
+            response_future_1 = append_rows_stream.send(request)
+            # response_future_1_result = response_future_1.result()
 
         # Shutdown background threads and close the streaming connection.
         append_rows_stream.close()
-        self.append_rows_streams.pop(bq_table_log_fqn)
+        # self.append_rows_streams.pop(bq_table_log_fqn)
 
-        # A PENDING type stream must be "finalized" before being committed. No new
-        # records can be written to the stream after this method has been called.
-        write_client.finalize_write_stream(name=write_stream.name)
+        # # A PENDING type stream must be "finalized" before being committed. No new
+        # # records can be written to the stream after this method has been called.
+        # write_client.finalize_write_stream(name=stream_name)
 
-        # Commit the stream you created earlier.
-        batch_commit_write_streams_request = types.BatchCommitWriteStreamsRequest()
-        batch_commit_write_streams_request.parent = parent
-        batch_commit_write_streams_request.write_streams = [write_stream.name]
-        write_client.batch_commit_write_streams(batch_commit_write_streams_request)
+        # # Commit the stream you created earlier.
+        # batch_commit_write_streams_request = types.BatchCommitWriteStreamsRequest()
+        # batch_commit_write_streams_request.parent = parent
+        # batch_commit_write_streams_request.write_streams = [stream_name]
+        # write_client.batch_commit_write_streams(batch_commit_write_streams_request)
 
     def upload(self, pg_table_fqn, filenames: set[str]):
         """
-        Each tables must be run serially to avoid race conditions on updating BQ external table
+        Each table set must run in a single thread to avoid race conditions on updating BQ schema
         """
 
         if not filenames:
@@ -283,13 +300,12 @@ class Uploader:
         pb2_class = self.import_proto(pg_table)
         logger.debug(f'{pg_table_fqn}: compiled proto file')
 
-        self.write_pending(filenames, bq_table_log_fqn, pg_table, pb2_class)
+        self.write(filenames, bq_table_log_fqn, pg_table, pb2_class)
 
         logger.info(f'{pg_table_fqn}: streamed to log table')
 
         # Remove all processed files
         [os.remove(filename) for filename in filenames]
-        logger.debug(f'{pg_table_fqn}: removed processed files')
 
         return pg_table.fqn
 
