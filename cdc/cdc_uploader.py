@@ -3,6 +3,7 @@ import glob
 import grpc_tools.protoc
 import importlib
 import json
+import logging
 import os
 import time
 import traceback
@@ -18,11 +19,10 @@ from typing import Any
 
 from alert import send_message
 
-# import logging
-# logging.basicConfig(level=logging.DEBUG)
-# logging.basicConfig(level=logging.INFO)
-
 dotenv.load_dotenv()
+
+if os.environ['DEBUG'] == '1':
+    logging.basicConfig(level=logging.DEBUG)
 
 SA_FILENAME = os.environ['SA_FILENAME']
 
