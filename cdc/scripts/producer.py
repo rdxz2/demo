@@ -101,7 +101,10 @@ class AllDtype(multiprocessing.Process):
                     random.randint(-9223372036854775808, 9223372036854775807),
                     generate_random_string(100),
                     generate_random_string(1000),
-                    json.dumps({'key': 'value'}),
+                    json.dumps({
+                        generate_random_string(10, 50): generate_random_string(100, 500)
+                        for _ in random.randint(1, 100)
+                    }),
                     random.random(),
                     random.choice([True, False, None]),
                     datetime.now(timezone.utc),
@@ -171,43 +174,43 @@ class Gen100(multiprocessing.Process):
             raise
 
 
-class BigText(multiprocessing.Process):
-    """
-    Generate rows with big amount of text
-    """
+# class BigText(multiprocessing.Process):
+#     """
+#     Generate rows with big amount of text
+#     """
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.pg = PG(PG_CONN_NAME)
+#     def __init__(self) -> None:
+#         super().__init__()
+#         self.pg = PG(PG_CONN_NAME)
 
-    def run(self):
-        logger.info(f'{BigText.__name__} started')
+#     def run(self):
+#         logger.info(f'{BigText.__name__} started')
 
-        try:
+#         try:
 
-            self.pg.execute_query(
-                f'''
-                CREATE TABLE IF NOT EXISTS big_text (
-                    id SERIAL PRIMARY KEY,
-                    value1 TEXT
-                );
-                ALTER TABLE big_text REPLICA IDENTITY FULL;
-                ''',
-                return_df=False
-            )
+#             self.pg.execute_query(
+#                 f'''
+#                 CREATE TABLE IF NOT EXISTS big_text (
+#                     id SERIAL PRIMARY KEY,
+#                     value1 TEXT
+#                 );
+#                 ALTER TABLE big_text REPLICA IDENTITY FULL;
+#                 ''',
+#                 return_df=False
+#             )
 
-            while True:
-                self.pg.execute_query(
-                    f'''INSERT INTO big_text (value1) VALUES (%s);''',
-                    generate_random_string(random.randint(100_000, 1_000_000)),
-                    #
-                    return_df=False
-                )
-                time.sleep(600)
-        except:
-            stop.value = True
-            logger.error('Stopping for error')
-            raise
+#             while True:
+#                 self.pg.execute_query(
+#                     f'''INSERT INTO big_text (value1) VALUES (%s);''',
+#                     generate_random_string(random.randint(100_000, 1_000_000)),
+#                     #
+#                     return_df=False
+#                 )
+#                 time.sleep(600)
+#         except:
+#             stop.value = True
+#             logger.error('Stopping for error')
+#             raise
 
 
 class Truncate(multiprocessing.Process):
