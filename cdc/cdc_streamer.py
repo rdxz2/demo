@@ -1,6 +1,7 @@
 import dotenv
 import glob
 import json
+import logging
 import os
 import psycopg2
 import psycopg2.extensions
@@ -20,8 +21,10 @@ from alert import send_message
 from data import FileDescriptor, ReplicationMessage, TransactionEvent
 from decoder import Decoder, json_serializer
 
-
 dotenv.load_dotenv()
+
+if os.environ['DEBUG'] == '1':
+    logging.basicConfig(level=logging.DEBUG)
 
 REPL_DB_HOST = os.environ['REPL_DB_HOST']
 REPL_DB_PORT = int(os.environ['REPL_DB_PORT'])
@@ -74,7 +77,8 @@ class LogicalReplicationStreamer:
         self.cursor = self.conn.cursor(cursor_factory=psycopg2.extras.ReplicationCursor)
         logger.debug(f'Connected to db: {REPL_DB_NAME} (Replication)')
 
-        send_message(f'_cdc_streamer [{REPL_DB_NAME}]_ started')
+        # # Send starting message
+        # send_message(f'_cdc_streamer [{REPL_DB_NAME}]_ started')
 
     def run(self) -> None:
         thread_stream = Thread(target=self.streamer, daemon=True)  # Spawn thread to start streaming from replication slot
@@ -179,7 +183,7 @@ class LogicalReplicationStreamer:
 
         except Exception as e:
             t = traceback.format_exc()
-            send_message(f'_cdc_streamer [{REPL_DB_NAME}]_ constumer error: **{e}**\n```{t}```')
+            send_message(f'_cdc_streamer [{REPL_DB_NAME}]_ consumer error: **{e}**\n```{t}```')
             logger.error(f'Error in consumer thread: {e}\n{t}')
             self.exception_event.set()
         finally:
