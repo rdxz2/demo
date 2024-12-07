@@ -103,7 +103,7 @@ class AllDtype(multiprocessing.Process):
                     generate_random_string(1000),
                     json.dumps({
                         generate_random_string(10, 50): generate_random_string(100, 500)
-                        for _ in random.randint(1, 100)
+                        for _ in range(random.randint(1, 100))
                     }),
                     random.random(),
                     random.choice([True, False, None]),
