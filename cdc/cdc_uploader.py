@@ -8,7 +8,7 @@ import time
 import traceback
 
 from concurrent.futures import ThreadPoolExecutor
-from data import Column, Table, BqColumn, BqTable
+from data import PgcColumn, PgTable, BqColumn, BqTable
 from datetime import datetime
 from google.cloud import bigquery, bigquery_storage_v1
 from google.cloud.bigquery_storage_v1 import types, writer
@@ -38,15 +38,15 @@ UPLOADER_STREAM_CHUNK_SIZE_B = int(os.environ['UPLOADER_STREAM_CHUNK_SIZE_B'])
 DISCORD_WEBHOOK_URL = os.environ['DISCORD_WEBHOOK_URL']
 
 META_PG_COLUMNS = [
-    Column(pk=False, name='__m_op', dtype_oid=0, dtype='varchar', bq_dtype='', proto_dtype='string', is_nullable=True, ordinal_position=0),
-    Column(pk=False, name='__m_lsn', dtype_oid=0, dtype='bigint', bq_dtype='', proto_dtype='int64', is_nullable=True, ordinal_position=0),
-    Column(pk=False, name='__m_send_ts', dtype_oid=0, dtype='timestamp with time zone', bq_dtype='', proto_dtype='int64', is_nullable=True, ordinal_position=0),
-    Column(pk=False, name='__m_size', dtype_oid=0, dtype='int', bq_dtype='', proto_dtype='int32', is_nullable=True, ordinal_position=0),
-    Column(pk=False, name='__m_wal_end', dtype_oid=0, dtype='bigint', bq_dtype='', proto_dtype='int64', is_nullable=True, ordinal_position=0),
-    Column(pk=False, name='__tx_lsn', dtype_oid=0, dtype='bigint', bq_dtype='', proto_dtype='int64', is_nullable=True, ordinal_position=0),
-    Column(pk=False, name='__tx_commit_ts', dtype_oid=0, dtype='timestamp with time zone', bq_dtype='', proto_dtype='int64', is_nullable=True, ordinal_position=0),
-    Column(pk=False, name='__tx_id', dtype_oid=0, dtype='int', bq_dtype='', proto_dtype='int32', is_nullable=True, ordinal_position=0),
-    Column(pk=False, name='__tb', dtype_oid=0, dtype='json', bq_dtype='', proto_dtype='string', is_nullable=True, ordinal_position=0),
+    PgcColumn(pk=False, name='__m_op', dtype_oid=0, dtype='varchar', bq_dtype='', proto_dtype='string', is_nullable=True, ordinal_position=0),
+    PgcColumn(pk=False, name='__m_lsn', dtype_oid=0, dtype='bigint', bq_dtype='', proto_dtype='int64', is_nullable=True, ordinal_position=0),
+    PgcColumn(pk=False, name='__m_send_ts', dtype_oid=0, dtype='timestamp with time zone', bq_dtype='', proto_dtype='int64', is_nullable=True, ordinal_position=0),
+    PgcColumn(pk=False, name='__m_size', dtype_oid=0, dtype='int', bq_dtype='', proto_dtype='int32', is_nullable=True, ordinal_position=0),
+    PgcColumn(pk=False, name='__m_wal_end', dtype_oid=0, dtype='bigint', bq_dtype='', proto_dtype='int64', is_nullable=True, ordinal_position=0),
+    PgcColumn(pk=False, name='__tx_lsn', dtype_oid=0, dtype='bigint', bq_dtype='', proto_dtype='int64', is_nullable=True, ordinal_position=0),
+    PgcColumn(pk=False, name='__tx_commit_ts', dtype_oid=0, dtype='timestamp with time zone', bq_dtype='', proto_dtype='int64', is_nullable=True, ordinal_position=0),
+    PgcColumn(pk=False, name='__tx_id', dtype_oid=0, dtype='int', bq_dtype='', proto_dtype='int32', is_nullable=True, ordinal_position=0),
+    PgcColumn(pk=False, name='__tb', dtype_oid=0, dtype='json', bq_dtype='', proto_dtype='string', is_nullable=True, ordinal_position=0),
 ]
 META_MAP_PG_COLUMNS = {column.name: column.dtype for column in META_PG_COLUMNS}
 
@@ -90,7 +90,7 @@ class Uploader:
         # Send starting message
         send_message(f'_cdc_uploader [{REPL_DB_NAME}]_ started')
 
-    def generate_and_compile_proto(self, table: Table):
+    def generate_and_compile_proto(self, table: PgTable):
         proto_filename = os.path.join(PROTO_OUTPUT_DIR, f'{table.proto_filename}.proto')
 
         # Generate proto file
@@ -110,12 +110,12 @@ class Uploader:
         proto_filename = os.path.join(PROTO_OUTPUT_DIR, f'{table.proto_filename}.proto')
         grpc_tools.protoc.main(['protoc', '--python_out=.', proto_filename])
 
-    def import_proto(self, table: Table) -> Any:
+    def import_proto(self, table: PgTable) -> Any:
         pb2 = importlib.import_module(f'{PROTO_OUTPUT_DIR.replace(os.sep, ".")}.{table.proto_filename}_pb2')
         pb2_class = getattr(pb2, table.proto_classname)
         return pb2_class
 
-    def generate_raw_data(self, filenames: set[str], pg_table: Table):
+    def generate_raw_data(self, filenames: set[str], pg_table: PgTable):
         map__column__dtype = {column.name: column.dtype for column in pg_table.columns}
         map__column__dtype.update(META_MAP_PG_COLUMNS)
         for filename in sorted(filenames):  # Ensure transactions order
@@ -132,7 +132,7 @@ class Uploader:
                             data[key] = datetime.fromisoformat(data[key]).strftime('%Y-%m-%d %H:%M:%S')  # Convert to string
                     yield data
 
-    def write_pending(self, filenames, bq_table_log_fqn: str, pg_table: Table, pb2_class):
+    def write(self, filenames, bq_table_log_fqn: str, pg_table: PgTable, pb2_class):
         """
         Source: https://cloud.google.com/bigquery/docs/write-api-batch#batch_load_data_using_pending_type
         """
@@ -223,8 +223,8 @@ class Uploader:
         # Detect schema changes
         for filename in sorted(filenames):  # Ensure transactions order
             pg_table = json.loads(read_file_last_line(filename))['__tb']  # Get the latest transaction as it represents the latest schema
-            pg_table['columns'] = [Column(**column) for column in pg_table['columns']]
-            pg_table = Table(**pg_table)
+            pg_table['columns'] = [PgcColumn(**column) for column in pg_table['columns']]
+            pg_table = PgTable(**pg_table)
 
             # Detect new table
             if bq_table_log_fqn not in self.map__bq_table_fqn__bq_table:

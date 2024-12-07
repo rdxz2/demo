@@ -15,7 +15,7 @@ class EnumOp(str, Enum):
     TRUNCATE = 'T'
 
 
-class Column(BaseModel):
+class PgcColumn(BaseModel):
     pk: bool
     name: str
     dtype_oid: int
@@ -26,12 +26,12 @@ class Column(BaseModel):
     ordinal_position: int
 
 
-class Table(BaseModel):
+class PgTable(BaseModel):
     db: str
     tschema: str = Field(..., alias='schema')  # 'schema' is a reserved keyword by pydantic
     name: str
     oid: int
-    columns: list[Column]
+    columns: list[PgcColumn]
 
     fqn: str
     proto_classname: str
@@ -62,7 +62,7 @@ class TransactionEvent(BaseModel):  # Decoded replication message
     op: EnumOp
     replication_msg: ReplicationMessage
     transaction: Transaction
-    table: Table
+    table: PgTable
     data: Optional[dict[str, Any]]
 
 
