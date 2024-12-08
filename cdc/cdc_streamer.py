@@ -12,7 +12,7 @@ import time
 import traceback
 import uuid
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from loguru import logger
 from queue import Queue
 from threading import Thread
@@ -65,6 +65,8 @@ class LogicalReplicationStreamer:
         self.transaction = None
         self.send_feedback = False
         self.latest_lsn = None
+        self.latest_commit_ts = None
+        self.now = datetime.now(tz=timezone.utc)
         self.msg_count = 0
         self.latest_msg_ts = datetime.now(tz=timezone.utc)
         self.latest_all_file_closed_ts = datetime.now(tz=timezone.utc)
@@ -81,17 +83,25 @@ class LogicalReplicationStreamer:
         # send_message(f'_cdc_streamer [{REPL_DB_NAME}]_ started')
 
     def run(self) -> None:
-        thread_stream = Thread(target=self.streamer, daemon=True)  # Spawn thread to start streaming from replication slot
+        thread_streamer = Thread(target=self.streamer, daemon=True)  # Spawn thread to start streaming from replication slot
         thread_consumer = Thread(target=self.consumer, daemon=True)  # Spawn thread to consume the streamed logical replication message
+        thread_monitor = Thread(target=self.monitor, daemon=True)  # Spawn thread to monitor the streamer
 
-        thread_stream.start()
+        thread_streamer.start()
         thread_consumer.start()
+        thread_monitor.start()
 
         thread_consumer.join()
         if thread_consumer.is_alive():
             logger.warning('Consumer thread is still alive, stopping the streamer...')
             self.exception_event.set()
             thread_consumer.join()
+
+        thread_monitor.join()
+        if thread_monitor.is_alive():
+            logger.warning('Monitor thread is still alive, stopping the streamer...')
+            self.exception_event.set()
+            thread_monitor.join()
 
         self.stop()
         logger.info('Exiting')
@@ -112,7 +122,7 @@ class LogicalReplicationStreamer:
             self.cursor.consume_stream(self.put_message_to_queue)
         except Exception as e:
             t = traceback.format_exc()
-            send_message(f'_cdc_streamer [{REPL_DB_NAME}]_ streamer error: **{e}**\n```{t}```')
+            send_message(f'_cdc_streamer [{REPL_DB_NAME}]_ streamer error: **{type(e)}: {e}**\n```{t}```')
             logger.error(f'Error in streamer thread: {e}\n{t}')
             self.exception_event.set()
             raise e
@@ -131,10 +141,8 @@ class LogicalReplicationStreamer:
     def consumer(self) -> None:
         logger.debug('Consumer thread started...')
         latest_no_msg_print_ts = datetime.now(tz=timezone.utc)
-        latest_delay_print_ts = datetime.now(tz=timezone.utc)
         try:
             while not self.exception_event.is_set():
-                now = datetime.now(tz=timezone.utc)
                 if not self.q.empty():
                     msg: ReplicationMessage = self.q.get()
                     self.msg_count += 1
@@ -146,25 +154,21 @@ class LogicalReplicationStreamer:
 
                     for decoded_msg in decoded_msgs:
                         self.write_to_file(decoded_msg)
-                        # Print the delay
-                        if (now - latest_delay_print_ts).total_seconds() > STREAM_DELAY_PRINT_INTERVAL_S:
-                            logger.info(f'TX_ID: {decoded_msg.transaction.xid}, TX_LSN: {decoded_msg.transaction.lsn}, TX_DELAY: {(now - decoded_msg.transaction.commit_ts).total_seconds()} s, MSGs: {self.msg_count}')
-                            latest_delay_print_ts = now
-                            self.msg_count = 0
+                        self.latest_commit_ts = decoded_msg.transaction.commit_ts
 
                     # Close all files if it's opened for too long
-                    if (now - self.latest_all_file_closed_ts).total_seconds() > STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S:
+                    if (self.now - self.latest_all_file_closed_ts).total_seconds() > STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S:
                         self.close_all_files(f'all files opened for {STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S} seconds')
 
-                    self.latest_msg_ts = now
+                    # self.latest_msg_ts = self.now
 
                 else:  # No message
-                    if (now - self.latest_msg_ts).total_seconds() > STREAM_NO_MESSAGE_REPORT_INTERVAL_S and (now - latest_no_msg_print_ts).total_seconds() > STREAM_NO_MESSAGE_REPORT_INTERVAL_S:
-                        logger.warning(f'No message for {(now - self.latest_msg_ts).total_seconds()} seconds')
-                        latest_no_msg_print_ts = now
+                    if (self.now - self.latest_msg_ts).total_seconds() > STREAM_NO_MESSAGE_REPORT_INTERVAL_S and (self.now - latest_no_msg_print_ts).total_seconds() > STREAM_NO_MESSAGE_REPORT_INTERVAL_S:
+                        logger.warning(f'No message for {(self.now - self.latest_msg_ts).total_seconds()} seconds')
+                        latest_no_msg_print_ts = self.now
 
                     # Close all files if no message received for too long
-                    if (now - self.latest_all_file_closed_ts).total_seconds() > STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S:
+                    if (self.now - self.latest_all_file_closed_ts).total_seconds() > STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S:
                         self.close_all_files(f'no message for {STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S} seconds')
 
                     time.sleep(STREAM_CONSUMER_POLL_INTERVAL_S)
@@ -183,7 +187,7 @@ class LogicalReplicationStreamer:
 
         except Exception as e:
             t = traceback.format_exc()
-            send_message(f'_cdc_streamer [{REPL_DB_NAME}]_ consumer error: **{e}**\n```{t}```')
+            send_message(f'_cdc_streamer [{REPL_DB_NAME}]_ consumer error: **{type(e)}: {e}**\n```{t}```')
             logger.error(f'Error in consumer thread: {e}\n{t}')
             self.exception_event.set()
         finally:
@@ -199,7 +203,7 @@ class LogicalReplicationStreamer:
         # Construct data
         data = {
             # Metadata: message
-            '__m_op': decoded_msg.op.value,
+            '__m_op': decoded_msg.op,
             '__m_lsn': decoded_msg.replication_msg.data_start,
             '__m_send_ts': decoded_msg.replication_msg.send_time,
             '__m_size': decoded_msg.replication_msg.data_size,
@@ -210,23 +214,14 @@ class LogicalReplicationStreamer:
             '__tx_id': decoded_msg.transaction.xid,
             # Metadata: table
             '__tb': {
-                'db': decoded_msg.table.db,
-                'schema': decoded_msg.table.tschema,
-                'name': decoded_msg.table.name,
-                'oid': decoded_msg.table.oid,
-                'fqn': decoded_msg.table.fqn,
                 'proto_classname': decoded_msg.table.proto_classname,
                 'proto_filename': decoded_msg.table.proto_filename,
                 'columns': [
                     {
-                        'pk': column.pk,
                         'name': column.name,
-                        'dtype_oid': column.dtype_oid,
                         'dtype': column.dtype,
                         'bq_dtype': column.bq_dtype,
                         'proto_dtype': column.proto_dtype,
-                        'is_nullable': column.is_nullable,
-                        'ordinal_position': column.ordinal_position,
                     } for column in decoded_msg.table.columns
                 ],
             },
@@ -266,6 +261,25 @@ class LogicalReplicationStreamer:
             self.send_feedback = True
 
         self.latest_all_file_closed_ts = datetime.now(tz=timezone.utc)
+
+    def monitor(self) -> None:
+        try:
+            while not self.exception_event.is_set():
+                self.now = datetime.now(tz=timezone.utc)
+                if self.msg_count:
+                    commit_ts = (self.latest_commit_ts or datetime.fromtimestamp(0)).replace(tzinfo=timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d %H:%M:%S.%f%z')
+                    delay = (self.now - self.latest_commit_ts).total_seconds() if self.latest_commit_ts else -1
+                    logger.info(f'MSGs: {self.msg_count:6d}, COMMIT_TS: {commit_ts}, DELAY: {delay:5.2f}s LSN: {self.latest_lsn:10d}, Files: {len(self.opened_files):4d}')
+                    self.msg_count = 0
+                time.sleep(1)
+        except Exception as e:
+            t = traceback.format_exc()
+            send_message(f'_cdc_streamer [{REPL_DB_NAME}]_ monitor error: **{type(e)}: {e}**\n```{t}```')
+            logger.error(f'Error in monitor thread: {e}\n{t}')
+            self.exception_event.set()
+            raise e
+        finally:
+            logger.warning('Gracefully stopped monitor thread')
 
     def stop(self) -> None:
         self.cursor.close()
