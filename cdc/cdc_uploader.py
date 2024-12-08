@@ -11,7 +11,7 @@ import traceback
 
 from concurrent.futures import ThreadPoolExecutor
 from data import PgcColumn, PgTable, BqColumn, BqTable
-from datetime import datetime
+from datetime import datetime, timezone
 from google.cloud import bigquery, bigquery_storage_v1
 from google.cloud.bigquery_storage_v1 import types, writer
 from google.protobuf import descriptor_pb2
@@ -35,19 +35,20 @@ UPLOAD_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'upload')
 UPLOADER_THREADS = int(os.environ['UPLOADER_THREADS'])
 UPLOADER_FILE_POLL_INTERVAL_S = int(os.environ['UPLOADER_FILE_POLL_INTERVAL_S'])
 UPLOADER_STREAM_CHUNK_SIZE_B = int(os.environ['UPLOADER_STREAM_CHUNK_SIZE_B'])
+UPLOADER_NO_FILE_REPORT_INTERVAL_S = int(os.environ['UPLOADER_NO_FILE_REPORT_INTERVAL_S'])
 
 DISCORD_WEBHOOK_URL = os.environ['DISCORD_WEBHOOK_URL']
 
 META_PG_COLUMNS = [
-    PgcColumn(pk=False, name='__m_op', dtype_oid=0, dtype='varchar', bq_dtype='', proto_dtype='string', is_nullable=True, ordinal_position=0),
-    PgcColumn(pk=False, name='__m_lsn', dtype_oid=0, dtype='bigint', bq_dtype='', proto_dtype='int64', is_nullable=True, ordinal_position=0),
-    PgcColumn(pk=False, name='__m_send_ts', dtype_oid=0, dtype='timestamp with time zone', bq_dtype='', proto_dtype='int64', is_nullable=True, ordinal_position=0),
-    PgcColumn(pk=False, name='__m_size', dtype_oid=0, dtype='int', bq_dtype='', proto_dtype='int32', is_nullable=True, ordinal_position=0),
-    PgcColumn(pk=False, name='__m_wal_end', dtype_oid=0, dtype='bigint', bq_dtype='', proto_dtype='int64', is_nullable=True, ordinal_position=0),
-    PgcColumn(pk=False, name='__tx_lsn', dtype_oid=0, dtype='bigint', bq_dtype='', proto_dtype='int64', is_nullable=True, ordinal_position=0),
-    PgcColumn(pk=False, name='__tx_commit_ts', dtype_oid=0, dtype='timestamp with time zone', bq_dtype='', proto_dtype='int64', is_nullable=True, ordinal_position=0),
-    PgcColumn(pk=False, name='__tx_id', dtype_oid=0, dtype='int', bq_dtype='', proto_dtype='int32', is_nullable=True, ordinal_position=0),
-    PgcColumn(pk=False, name='__tb', dtype_oid=0, dtype='json', bq_dtype='', proto_dtype='string', is_nullable=True, ordinal_position=0),
+    PgcColumn(name='__m_op', dtype='varchar', bq_dtype='STRING', proto_dtype='string'),
+    PgcColumn(name='__m_lsn', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
+    PgcColumn(name='__m_send_ts', dtype='timestamp with time zone', bq_dtype='TIMESTAMP', proto_dtype='int64'),
+    PgcColumn(name='__m_size', dtype='int', bq_dtype='INT64', proto_dtype='int32'),
+    PgcColumn(name='__m_wal_end', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
+    PgcColumn(name='__tx_lsn', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
+    PgcColumn(name='__tx_commit_ts', dtype='timestamp with time zone', bq_dtype='TIMESTAMP', proto_dtype='int64'),
+    PgcColumn(name='__tx_id', dtype='int', bq_dtype='INT64', proto_dtype='int32'),
+    PgcColumn(name='__tb', dtype='json', bq_dtype='JSON', proto_dtype='string'),
 ]
 META_MAP_PG_COLUMNS = {column.name: column.dtype for column in META_PG_COLUMNS}
 
@@ -85,7 +86,7 @@ class Uploader:
         )
         for result in results:
             if result['fqn'] not in self.map__bq_table_fqn__bq_table:
-                self.map__bq_table_fqn__bq_table[result['fqn']] = BqTable(name=result['fqn'])
+                self.map__bq_table_fqn__bq_table[result['fqn']] = BqTable(name=result['fqn'], columns=[])
             self.map__bq_table_fqn__bq_table[result['fqn']].columns.append(BqColumn(name=result['column_name'], dtype=result['dtype']))
         logger.debug('Fetched existing tables')
 
@@ -100,7 +101,7 @@ class Uploader:
             f.write(f'syntax = "proto3";\n\n')
             f.write(f'package {REPL_DB_NAME};\n\n')
             f.write(f'message {table.proto_classname} {{\n')
-            for i, column in enumerate(sorted(META_PG_COLUMNS + table.columns, key=lambda x: x.ordinal_position)):
+            for i, column in enumerate(META_PG_COLUMNS + table.columns):
                 # All columns are optional
                 # This fixes the proto serializer issue where default values are not serialized
                 # Example: the default value for 'bool' is 'false'
@@ -247,24 +248,17 @@ class Uploader:
             if bq_table_log_fqn not in self.map__bq_table_fqn__bq_table:
                 self.map__bq_table_fqn__bq_table[bq_table_log_fqn] = BqTable(
                     name=bq_table_log_fqn,
-                    columns=[BqColumn(name=column.name, dtype=column.dtype) for column in sorted(pg_table.columns, key=lambda x: x.ordinal_position)],
+                    columns=[BqColumn(name=column.name, dtype=column.dtype) for column in pg_table.columns],
                 )
 
                 # Create log table
                 logger.info(f'{pg_table_fqn}: new log table: {bq_table_log_fqn}')
-                columns_str = ',\n'.join([f'    `{column.name}` {column.bq_dtype}' for column in sorted(pg_table.columns, key=lambda x: x.ordinal_position)])
+                meta_columns_str = ',\n'.join([f'    `{column.name}` {column.bq_dtype}' for column in META_PG_COLUMNS])
+                columns_str = ',\n'.join([f'    `{column.name}` {column.bq_dtype}' for column in pg_table.columns])
                 self.bq_client.query_and_wait(
                     f'''
                     CREATE TABLE `{bq_table_log_fqn}` (
-                        `__m_op` STRING,
-                        `__m_lsn` INT64,
-                        `__m_send_ts` TIMESTAMP,
-                        `__m_size` INT64,
-                        `__m_wal_end` INT64,
-                        `__tx_lsn` INT64,
-                        `__tx_commit_ts` TIMESTAMP,
-                        `__tx_id` INT64,
-                        `__tb` JSON,
+                    {meta_columns_str},
                     {columns_str}
                     )
                     PARTITION BY DATE(`__tx_commit_ts`)
@@ -319,6 +313,8 @@ if __name__ == '__main__':
     thread_pool_executor = ThreadPoolExecutor(max_workers=UPLOADER_THREADS)
     logger.info('Starting cdc uploader...')
     uploader = Uploader()
+    latest_file_ts = datetime.now(tz=timezone.utc)
+    latest_no_file_print_ts = datetime.now(tz=timezone.utc)
     while True:
         if filenames := glob.glob(f'{UPLOAD_OUTPUT_DIR}/*.json'):
 
@@ -341,5 +337,11 @@ if __name__ == '__main__':
                     send_message(f'_cdc_uploader [{REPL_DB_NAME}]_ error: **{e}**\nTable: **{pg_table_fqn}**\nFiles:\n```{filenames}```Traceback:\n```{t}```')
                     raise e
 
+            last_file_time = datetime.now(tz=timezone.utc)
         else:
             time.sleep(UPLOADER_FILE_POLL_INTERVAL_S)
+
+            now = datetime.now(tz=timezone.utc)
+            if (now - latest_file_ts).total_seconds() > UPLOADER_NO_FILE_REPORT_INTERVAL_S and (now - latest_no_file_print_ts).total_seconds() > UPLOADER_NO_FILE_REPORT_INTERVAL_S:
+                logger.warning(f'No message for {(now - latest_file_ts).total_seconds()} seconds')
+                latest_no_file_print_ts = now

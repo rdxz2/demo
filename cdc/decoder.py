@@ -328,11 +328,9 @@ class Decoder:
         existing_column_names = {column.name for column in self.map__relation_oid__table[relation.oid].columns}
         new_column_names = {column.name for column in relation.columns if column.name not in existing_column_names}
         if new_column_names:
-            map__column_name__nullable = self.fetch_columns_nullable(self.map__relation_oid__table[relation.oid].tschema, self.map__relation_oid__table[relation.oid].name, new_column_names)
-
-            ordinal_position = 0
+            # ordinal_position = 0
             for relation_column in relation.columns:  # Iterate the full column list
-                ordinal_position += 1
+                # ordinal_position += 1
                 if relation_column in map__relation_column__column:
                     continue
 
@@ -342,14 +340,10 @@ class Decoder:
 
                 # Update table columns
                 self.map__relation_oid__table[relation.oid].columns.append(PgcColumn(
-                    pk=relation_column.pk,
                     name=relation_column.name,
-                    dtype_oid=relation_column.dtype_oid,
                     dtype=self.map__dtype_oid__dtype[relation_column.dtype_oid],
                     bq_dtype=MAP__PG_DTYPE__BQ_DTYPE.get(self.map__dtype_oid__dtype[relation_column.dtype_oid], 'STRING'),
                     proto_dtype=MAP__PG_DTYPE__PROTO_DTYPE.get(self.map__dtype_oid__dtype[relation_column.dtype_oid], 'string'),
-                    is_nullable=map__column_name__nullable[relation_column.name],
-                    ordinal_position=ordinal_position,
                 ))
 
         # Validate number of columns

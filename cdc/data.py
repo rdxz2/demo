@@ -1,9 +1,8 @@
 import io
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, Any
 
 
@@ -15,20 +14,22 @@ class EnumOp(str, Enum):
     TRUNCATE = 'T'
 
 
-class PgcColumn(BaseModel):
-    pk: bool
+@dataclass
+class PgcColumn:
+    # pk: bool
     name: str
-    dtype_oid: int
+    # dtype_oid: int
     dtype: str
     bq_dtype: str
     proto_dtype: str
-    is_nullable: bool
-    ordinal_position: int
+    # is_nullable: bool
+    # ordinal_position: int
 
 
-class PgTable(BaseModel):
+@dataclass
+class PgTable:
     db: str
-    tschema: str = Field(..., alias='schema')  # 'schema' is a reserved keyword by pydantic
+    tschema: str
     name: str
     oid: int
     columns: list[PgcColumn]
@@ -38,27 +39,36 @@ class PgTable(BaseModel):
     proto_filename: str
 
     def __init__(self, **kwargs):
-        kwargs['fqn'] = f'{kwargs["db"]}.{kwargs["schema"]}.{kwargs["name"]}'
-        kwargs['proto_classname'] = f'{kwargs["db"].capitalize()}{kwargs["schema"].capitalize()}{kwargs["name"].capitalize()}'  # db.schema.table -> DbSchemaTable
-        kwargs['proto_filename'] = f'{kwargs["db"]}_{kwargs["schema"]}_{kwargs["name"]}'
-        super().__init__(**kwargs)
+        self.fqn = f'{kwargs["db"]}.{kwargs["schema"]}.{kwargs["name"]}'
+        self.proto_classname = f'{kwargs["db"].capitalize()}{kwargs["schema"].capitalize()}{kwargs["name"].capitalize()}'  # db.schema.table -> DbSchemaTable
+        self.proto_filename = f'{kwargs["db"]}_{kwargs["schema"]}_{kwargs["name"]}'
+        # super().__init__(**kwargs)
+
+        self.db = kwargs['db']
+        self.tschema = kwargs['schema']
+        self.name = kwargs['name']
+        self.oid = kwargs['oid']
+        self.columns = kwargs['columns']
 
 
-class Transaction(BaseModel):
+@dataclass
+class Transaction:
     lsn: int
     commit_ts: datetime
     xid: int
 
 
-class ReplicationMessage(BaseModel):  # The original replication message
+@dataclass
+class ReplicationMessage:  # The original replication message
     data_start: int  # Begin LSN
-    payload: Optional[bytes] = None
     send_time: datetime
     data_size: int
     wal_end: int
+    payload: Optional[bytes] = None
 
 
-class TransactionEvent(BaseModel):  # Decoded replication message
+@dataclass
+class TransactionEvent:  # Decoded replication message
     op: EnumOp
     replication_msg: ReplicationMessage
     transaction: Transaction
@@ -66,9 +76,8 @@ class TransactionEvent(BaseModel):  # Decoded replication message
     data: Optional[dict[str, Any]]
 
 
-class FileDescriptor(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)  # Prevent io.TextIOWrapper from throwing pydantic error
-
+@dataclass
+class FileDescriptor:
     filename: str
     file: io.TextIOWrapper
     size: int
@@ -100,14 +109,16 @@ class RelationColumn:
 # Uploader specifics
 
 
-class BqColumn(BaseModel):
+@dataclass
+class BqColumn:
     name: str
     dtype: str
 
 
-class BqTable(BaseModel):
+@dataclass
+class BqTable:
     name: str
-    columns: list[BqColumn] = []
+    columns: list[BqColumn] = field(default_factory=list)
 
     def __eq__(self, other: 'BqTable') -> bool:
         if not isinstance(other, BqTable):
