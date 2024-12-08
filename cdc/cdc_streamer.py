@@ -160,7 +160,7 @@ class LogicalReplicationStreamer:
                     if (self.now - self.latest_all_file_closed_ts).total_seconds() > STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S:
                         self.close_all_files(f'all files opened for {STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S} seconds')
 
-                    # self.latest_msg_ts = self.now
+                    self.latest_msg_ts = self.now
 
                 else:  # No message
                     if (self.now - self.latest_msg_ts).total_seconds() > STREAM_NO_MESSAGE_REPORT_INTERVAL_S and (self.now - latest_no_msg_print_ts).total_seconds() > STREAM_NO_MESSAGE_REPORT_INTERVAL_S:

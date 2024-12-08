@@ -10,7 +10,7 @@ import time
 import traceback
 
 from concurrent.futures import ThreadPoolExecutor
-from data import PgcColumn, PgTable, BqColumn, BqTable
+from data import PgColumn, PgTable, BqColumn, BqTable
 from datetime import datetime, timezone
 from google.cloud import bigquery, bigquery_storage_v1
 from google.cloud.bigquery_storage_v1 import types, writer
@@ -40,15 +40,15 @@ UPLOADER_NO_FILE_REPORT_INTERVAL_S = int(os.environ['UPLOADER_NO_FILE_REPORT_INT
 DISCORD_WEBHOOK_URL = os.environ['DISCORD_WEBHOOK_URL']
 
 META_PG_COLUMNS = [
-    PgcColumn(name='__m_op', dtype='varchar', bq_dtype='STRING', proto_dtype='string'),
-    PgcColumn(name='__m_lsn', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
-    PgcColumn(name='__m_send_ts', dtype='timestamp with time zone', bq_dtype='TIMESTAMP', proto_dtype='int64'),
-    PgcColumn(name='__m_size', dtype='int', bq_dtype='INT64', proto_dtype='int32'),
-    PgcColumn(name='__m_wal_end', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
-    PgcColumn(name='__tx_lsn', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
-    PgcColumn(name='__tx_commit_ts', dtype='timestamp with time zone', bq_dtype='TIMESTAMP', proto_dtype='int64'),
-    PgcColumn(name='__tx_id', dtype='int', bq_dtype='INT64', proto_dtype='int32'),
-    PgcColumn(name='__tb', dtype='json', bq_dtype='JSON', proto_dtype='string'),
+    PgColumn(name='__m_op', dtype='varchar', bq_dtype='STRING', proto_dtype='string'),
+    PgColumn(name='__m_lsn', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
+    PgColumn(name='__m_send_ts', dtype='timestamp with time zone', bq_dtype='TIMESTAMP', proto_dtype='int64'),
+    PgColumn(name='__m_size', dtype='int', bq_dtype='INT64', proto_dtype='int32'),
+    PgColumn(name='__m_wal_end', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
+    PgColumn(name='__tx_lsn', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
+    PgColumn(name='__tx_commit_ts', dtype='timestamp with time zone', bq_dtype='TIMESTAMP', proto_dtype='int64'),
+    PgColumn(name='__tx_id', dtype='int', bq_dtype='INT64', proto_dtype='int32'),
+    PgColumn(name='__tb', dtype='json', bq_dtype='JSON', proto_dtype='string'),
 ]
 META_MAP_PG_COLUMNS = {column.name: column.dtype for column in META_PG_COLUMNS}
 
@@ -241,7 +241,7 @@ class Uploader:
         # Detect schema changes
         for filename in sorted(filenames):  # Ensure transactions order
             pg_table = json.loads(read_file_last_line(filename))['__tb']  # Get the latest transaction as it represents the latest schema
-            pg_table['columns'] = [PgcColumn(**column) for column in pg_table['columns']]
+            pg_table['columns'] = [PgColumn(**column) for column in pg_table['columns']]
             pg_table = PgTable(**pg_table)
 
             # Detect new table

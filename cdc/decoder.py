@@ -9,7 +9,7 @@ from loguru import logger
 from typing import Optional
 
 from data import (
-    PgcColumn,
+    PgColumn,
     Datum,
     EnumOp,
     RelationColumn,
@@ -339,7 +339,7 @@ class Decoder:
                     self.map__dtype_oid__dtype[relation_column.dtype_oid] = self.fetch_oid_dtype(relation_column.dtype_oid, relation_column.atttypmod)
 
                 # Update table columns
-                self.map__relation_oid__table[relation.oid].columns.append(PgcColumn(
+                self.map__relation_oid__table[relation.oid].columns.append(PgColumn(
                     name=relation_column.name,
                     dtype=self.map__dtype_oid__dtype[relation_column.dtype_oid],
                     bq_dtype=MAP__PG_DTYPE__BQ_DTYPE.get(self.map__dtype_oid__dtype[relation_column.dtype_oid], 'STRING'),

@@ -15,15 +15,11 @@ class EnumOp(str, Enum):
 
 
 @dataclass
-class PgcColumn:
-    # pk: bool
+class PgColumn:
     name: str
-    # dtype_oid: int
     dtype: str
     bq_dtype: str
     proto_dtype: str
-    # is_nullable: bool
-    # ordinal_position: int
 
 
 @dataclass
@@ -32,7 +28,7 @@ class PgTable:
     tschema: str
     name: str
     oid: int
-    columns: list[PgcColumn]
+    columns: list[PgColumn]
 
     fqn: str
     proto_classname: str
