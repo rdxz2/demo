@@ -55,8 +55,7 @@ class AllDtype(multiprocessing.Process):
                     t_byte BYTEA
                 );
                 ALTER TABLE all_dtype REPLICA IDENTITY FULL;
-                ''',
-                return_df=False
+                '''
             )
 
             while True:
@@ -112,8 +111,6 @@ class AllDtype(multiprocessing.Process):
                     datetime.now().date(),
                     datetime.now().time(),
                     bytes(random.randint(0, 255)),
-                    #
-                    return_df=False
                 )
                 time.sleep(randomize_sleep_time())
         except:
@@ -143,7 +140,6 @@ class Gen100(multiprocessing.Process):
             );
             ALTER TABLE gen_{i} REPLICA IDENTITY FULL;
             ''',
-            return_df=False
         )
 
         while True:
@@ -156,8 +152,6 @@ class Gen100(multiprocessing.Process):
                 random.randint(1, 10000),
                 generate_random_string(10),
                 datetime.now(timezone.utc),
-                #
-                return_df=False,
             )
             time.sleep(randomize_sleep_time())
 
@@ -196,7 +190,6 @@ class Gen100(multiprocessing.Process):
 #                 );
 #                 ALTER TABLE big_text REPLICA IDENTITY FULL;
 #                 ''',
-#                 return_df=False
 #             )
 
 #             while True:
@@ -204,7 +197,6 @@ class Gen100(multiprocessing.Process):
 #                     f'''INSERT INTO big_text (value1) VALUES (%s);''',
 #                     generate_random_string(random.randint(100_000, 1_000_000)),
 #                     #
-#                     return_df=False
 #                 )
 #                 time.sleep(600)
 #         except:
@@ -235,7 +227,6 @@ class Truncate(multiprocessing.Process):
                 );
                 ALTER TABLE ttruncate REPLICA IDENTITY FULL;
                 ''',
-                return_df=False
             )
 
             while True:
@@ -246,14 +237,11 @@ class Truncate(multiprocessing.Process):
                     random.randint(1, 1000),
                     random.randint(1, 1000),
                     random.randint(1, 1000),
-                    #
-                    return_df=False,
                 )
                 time.sleep(randomize_sleep_time())
 
                 self.pg.execute_query(
                     f'''TRUNCATE TABLE ttruncate;''',
-                    return_df=False
                 )
                 time.sleep(randomize_sleep_time())
         except:
@@ -284,7 +272,6 @@ class Delete(multiprocessing.Process):
                 );
                 ALTER TABLE tdelete REPLICA IDENTITY FULL;
                 ''',
-                return_df=False
             )
 
             while True:
@@ -292,15 +279,12 @@ class Delete(multiprocessing.Process):
                 self.pg.execute_query(
                     f'''INSERT INTO tdelete (value1) VALUES (%s);''',
                     random.randint(1, 1000),
-                    #
-                    return_df=False,
                 )
                 time.sleep(randomize_sleep_time())
 
                 # Delete
                 self.pg.execute_query(
                     f'''DELETE FROM tdelete;''',
-                    return_df=False
                 )
                 time.sleep(randomize_sleep_time())
         except:
@@ -331,7 +315,6 @@ class Update(multiprocessing.Process):
                 );
                 ALTER TABLE tupdate REPLICA IDENTITY FULL;
                 ''',
-                return_df=False
             )
 
             while True:
@@ -339,8 +322,6 @@ class Update(multiprocessing.Process):
                 self.pg.execute_query(
                     f'''INSERT INTO tupdate (value1) VALUES (%s);''',
                     random.randint(1, 1000),
-                    #
-                    return_df=False,
                 )
                 time.sleep(randomize_sleep_time())
 
@@ -348,8 +329,6 @@ class Update(multiprocessing.Process):
                 self.pg.execute_query(
                     f'''UPDATE tupdate SET value1 = %s;''',
                     random.randint(1, 1000),
-                    #
-                    return_df=False
                 )
                 time.sleep(randomize_sleep_time())
         except:
