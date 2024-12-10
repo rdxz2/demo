@@ -48,7 +48,7 @@ META_PG_COLUMNS = [
     PgColumn(name='__tx_lsn', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
     PgColumn(name='__tx_commit_ts', dtype='timestamp with time zone', bq_dtype='TIMESTAMP', proto_dtype='int64'),
     PgColumn(name='__tx_id', dtype='int', bq_dtype='INT64', proto_dtype='int32'),
-    PgColumn(name='__tb', dtype='json', bq_dtype='JSON', proto_dtype='string'),
+    # PgColumn(name='__tb', dtype='json', bq_dtype='JSON', proto_dtype='string'),
 ]
 META_MAP_PG_COLUMNS = {column.name: column.dtype for column in META_PG_COLUMNS}
 
@@ -125,7 +125,7 @@ class Uploader:
             with open(filename, 'r') as f:
                 while line := f.readline():
                     data: dict = json.loads(line)
-                    # del data['__tb']  # Strip-off table schema
+                    del data['__tb']  # Strip-off table schema
                     for key in data.keys():
                         if map__column__dtype[key] in {'jsonb', 'json'}:
                             data[key] = json.dumps(data[key])
@@ -337,11 +337,11 @@ if __name__ == '__main__':
                     send_message(f'_cdc_uploader [{REPL_DB_NAME}]_ error: **{e}**\nTable: **{pg_table_fqn}**\nFiles:\n```{filenames}```Traceback:\n```{t}```')
                     raise e
 
-            last_file_time = datetime.now(tz=timezone.utc)
+            latest_file_ts = datetime.now(tz=timezone.utc)
         else:
             time.sleep(UPLOADER_FILE_POLL_INTERVAL_S)
 
             now = datetime.now(tz=timezone.utc)
             if (now - latest_file_ts).total_seconds() > UPLOADER_NO_FILE_REPORT_INTERVAL_S and (now - latest_no_file_print_ts).total_seconds() > UPLOADER_NO_FILE_REPORT_INTERVAL_S:
-                logger.warning(f'No message for {(now - latest_file_ts).total_seconds()} seconds')
+                logger.warning(f'No file for {(now - latest_file_ts).total_seconds()} seconds')
                 latest_no_file_print_ts = now
