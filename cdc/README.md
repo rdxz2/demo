@@ -36,6 +36,7 @@ docker restart pg
 
 ```sql
 CREATE DATABASE stream;
+GRANT SELECT ON ALL TABLES IN SCHEMA public to repl;
 \c stream
 CREATE PUBLICATION "stream" FOR ALL TABLES;
 
