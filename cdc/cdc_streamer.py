@@ -194,8 +194,7 @@ class LogicalReplicationStreamer:
             logger.warning('Gracefully stopped consumer thread')
 
     def write_to_file(self, decoded_msg: TransactionEvent) -> None:
-        table_name = f'{decoded_msg.table.db}.{decoded_msg.table.tschema}.{decoded_msg.table.name}'  # Construct table fqn
-        filename = os.path.join(STREAM_OUTPUT_DIR, f'{decoded_msg.transaction.commit_ts.strftime("%Y%m%d%H%M%S")}-{table_name}.json')
+        filename = os.path.join(STREAM_OUTPUT_DIR, f'{decoded_msg.transaction.commit_ts.strftime("%Y%m%d%H%M%S")}-{decoded_msg.table.fqn}.json')
         dirname = os.path.dirname(filename)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
@@ -214,6 +213,7 @@ class LogicalReplicationStreamer:
             '__tx_id': decoded_msg.transaction.xid,
             # Metadata: table
             '__tb': {
+                'fqn': decoded_msg.table.fqn,
                 'proto_classname': decoded_msg.table.proto_classname,
                 'proto_filename': decoded_msg.table.proto_filename,
                 'columns': [
@@ -231,18 +231,18 @@ class LogicalReplicationStreamer:
         data_size = sys.getsizeof(data)
 
         # Register file if not exists
-        if table_name not in self.opened_files:
-            self.opened_files[table_name] = FileDescriptor(
+        if decoded_msg.table.fqn not in self.opened_files:
+            self.opened_files[decoded_msg.table.fqn] = FileDescriptor(
                 filename=filename,
                 file=open(filename, 'w'),
                 size=data_size,
             )
-        self.opened_files[table_name].file.write(data)
-        self.opened_files[table_name].size += data_size
+        self.opened_files[decoded_msg.table.fqn].file.write(data)
+        self.opened_files[decoded_msg.table.fqn].size += data_size
 
         # Close all files if this file is too big
-        if self.opened_files[table_name].size > STREAM_FILEWRITER_MAX_FILE_SIZE_B:
-            self.close_all_files(f'table \'{table_name}\' size exceeds {STREAM_FILEWRITER_MAX_FILE_SIZE_B} bytes')
+        if self.opened_files[decoded_msg.table.fqn].size > STREAM_FILEWRITER_MAX_FILE_SIZE_B:
+            self.close_all_files(f'table \'{decoded_msg.table.fqn}\' size exceeds {STREAM_FILEWRITER_MAX_FILE_SIZE_B} bytes')
 
     def close_all_files(self, reason: str) -> None:
         is_any_closed = False
@@ -263,6 +263,7 @@ class LogicalReplicationStreamer:
         self.latest_all_file_closed_ts = datetime.now(tz=timezone.utc)
 
     def monitor(self) -> None:
+        logger.debug('Monitor thread started...')
         try:
             while not self.exception_event.is_set():
                 self.now = datetime.now(tz=timezone.utc)

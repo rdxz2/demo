@@ -24,27 +24,11 @@ class PgColumn:
 
 @dataclass
 class PgTable:
-    db: str
-    tschema: str
-    name: str
-    oid: int
     columns: list[PgColumn]
 
     fqn: str
     proto_classname: str
     proto_filename: str
-
-    def __init__(self, **kwargs):
-        self.fqn = f'{kwargs["db"]}.{kwargs["schema"]}.{kwargs["name"]}'
-        self.proto_classname = f'{kwargs["db"].capitalize()}{kwargs["schema"].capitalize()}{kwargs["name"].capitalize()}'  # db.schema.table -> DbSchemaTable
-        self.proto_filename = f'{kwargs["db"]}_{kwargs["schema"]}_{kwargs["name"]}'
-        # super().__init__(**kwargs)
-
-        self.db = kwargs['db']
-        self.tschema = kwargs['schema']
-        self.name = kwargs['name']
-        self.oid = kwargs['oid']
-        self.columns = kwargs['columns']
 
 
 @dataclass

@@ -315,10 +315,9 @@ class Decoder:
         # Translate table (relation)
         if relation.oid not in self.map__relation_oid__table:
             self.map__relation_oid__table[relation.oid] = PgTable(
-                db=self.db_name,
-                schema=relation.schema,
-                name=relation.name,
-                oid=relation.oid,
+                fqn=f'{self.db_name}.{relation.schema}.{relation.name}',
+                proto_classname=f'{self.db_name.capitalize()}{relation.schema.capitalize()}{relation.name.capitalize()}',  # db.schema.table -> DbSchemaTable
+                proto_filename=f'{self.db_name}_{relation.schema}_{relation.name}',
                 columns=[],
             )
 
