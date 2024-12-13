@@ -34,6 +34,8 @@ REPL_DB_NAME = os.environ['REPL_DB_NAME']
 REPL_PUBL_NAME = os.environ['REPL_PUBL_NAME']
 REPL_SLOT_NAME = os.environ['REPL_SLOT_NAME']
 
+LOG_DIR = os.environ['LOG_DIR']
+
 STREAM_OUTPUT_DIR = os.environ['STREAM_OUTPUT_DIR']
 UPLOAD_OUTPUT_DIR = os.environ['UPLOAD_OUTPUT_DIR']
 
@@ -46,6 +48,8 @@ STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S = int(os.environ['STREAM_FILEWRITER_NO_
 
 STREAM_CONSUMER_QUEUE_MAX_SIZE = int(os.environ['STREAM_CONSUMER_QUEUE_MAX_SIZE'])
 STREAM_CONSUMER_POLL_INTERVAL_S = int(os.environ['STREAM_CONSUMER_POLL_INTERVAL_S'])  # Number of seconds to wait if there's no message in the queue
+
+logger.add(os.path.join(LOG_DIR, f'{os.path.basename(__file__)}.log'), rotation='00:00', retention='7 days', level='INFO')
 
 
 class LogicalReplicationStreamer:
@@ -140,7 +144,6 @@ class LogicalReplicationStreamer:
 
     def consumer(self) -> None:
         logger.debug('Consumer thread started...')
-        latest_no_msg_print_ts = datetime.now(tz=timezone.utc)
         try:
             while not self.exception_event.is_set():
                 if not self.q.empty():
@@ -163,10 +166,6 @@ class LogicalReplicationStreamer:
                     self.latest_msg_ts = self.now
 
                 else:  # No message
-                    if (self.now - self.latest_msg_ts).total_seconds() > STREAM_NO_MESSAGE_REPORT_INTERVAL_S and (self.now - latest_no_msg_print_ts).total_seconds() > STREAM_NO_MESSAGE_REPORT_INTERVAL_S:
-                        logger.warning(f'No message for {(self.now - self.latest_msg_ts).total_seconds()} seconds')
-                        latest_no_msg_print_ts = self.now
-
                     # Close all files if no message received for too long
                     if (self.now - self.latest_all_file_closed_ts).total_seconds() > STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S:
                         self.close_all_files(f'no message for {STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S} seconds')
@@ -265,13 +264,27 @@ class LogicalReplicationStreamer:
     def monitor(self) -> None:
         logger.debug('Monitor thread started...')
         try:
+            empty_msg_count = 0
+            latest_no_msg_print_ts = datetime.now(tz=timezone.utc)
             while not self.exception_event.is_set():
                 self.now = datetime.now(tz=timezone.utc)
-                if self.msg_count:
-                    commit_ts = (self.latest_commit_ts or datetime.fromtimestamp(0)).replace(tzinfo=timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d %H:%M:%S.%f%z')
-                    delay = (self.now - self.latest_commit_ts).total_seconds() if self.latest_commit_ts else -1
-                    logger.info(f'MSGs: {self.msg_count:6d}, COMMIT_TS: {commit_ts}, DELAY: {delay:5.2f}s LSN: {self.latest_lsn:10d}, Files: {len(self.opened_files):4d}')
+                if self.msg_count or empty_msg_count < 3:
+                    if self.msg_count == 0:
+                        empty_msg_count += 1
+                    else:
+                        empty_msg_count = 0
+
+                    commit_ts = (self.latest_commit_ts or datetime.fromtimestamp(0)).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d %H:%M:%S.%f%z')
+                    delay = (self.now - self.latest_commit_ts).total_seconds() if self.latest_commit_ts and self.msg_count > 0 else 0
+                    latest_lsn = self.latest_lsn or 0
+                    logger.info(f'MSGs: {self.msg_count:6d} | COMMIT_TS: {commit_ts} | DELAY: {delay:10.2f}s | LSN: {latest_lsn:10d} | Files: {len(self.opened_files):4d}')
                     self.msg_count = 0
+                else:
+                    empty_msg_count += 1
+
+                if (self.now - self.latest_msg_ts).total_seconds() > STREAM_NO_MESSAGE_REPORT_INTERVAL_S and (self.now - latest_no_msg_print_ts).total_seconds() > STREAM_NO_MESSAGE_REPORT_INTERVAL_S:
+                    logger.warning(f'No message for {(self.now - self.latest_msg_ts).total_seconds()} seconds')
+                    latest_no_msg_print_ts = self.now
                 time.sleep(1)
         except Exception as e:
             t = traceback.format_exc()

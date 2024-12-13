@@ -29,6 +29,8 @@ SA_FILENAME = os.environ['SA_FILENAME']
 
 REPL_DB_NAME = os.environ['REPL_DB_NAME']
 
+LOG_DIR = os.environ['LOG_DIR']
+
 PROTO_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'proto')
 
 UPLOAD_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'upload')
@@ -51,6 +53,8 @@ META_PG_COLUMNS = [
     # PgColumn(name='__tb', dtype='json', bq_dtype='JSON', proto_dtype='string'),
 ]
 META_MAP_PG_COLUMNS = {column.name: column.dtype for column in META_PG_COLUMNS}
+
+logger.add(os.path.join(LOG_DIR, f'{os.path.basename(__file__)}.log'), rotation='00:00', retention='7 days', level='INFO')
 
 
 def read_file_last_line(file: str) -> str:
