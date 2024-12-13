@@ -1,5 +1,6 @@
 import json
 import multiprocessing
+import os
 import random
 import sys
 import time
@@ -331,6 +332,51 @@ class Update(multiprocessing.Process):
                     random.randint(1, 1000),
                 )
                 time.sleep(randomize_sleep_time())
+        except:
+            stop.value = True
+            logger.error('Stopping for error')
+            raise
+
+
+class Batch(multiprocessing.Process):
+    """
+    Generate large batch of rows
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.pg = PG(PG_CONN_NAME)
+
+    def run(self):
+        logger.info(f'{Batch.__name__} started')
+
+        try:
+            # Create table
+            self.pg.execute_query(
+                f'''
+                CREATE TABLE IF NOT EXISTS batch (
+                    id SERIAL PRIMARY KEY,
+                    value1 INTEGER,
+                    value2 VARCHAR(1000),
+                    value3 VARCHAR(1000),
+                    value4 VARCHAR(1000),
+                    value5 VARCHAR(1000),
+                    value6 VARCHAR(1000)
+                );
+                ALTER TABLE batch REPLICA IDENTITY FULL;
+                ''',
+            )
+
+            while True:
+                # Insert
+                with open('/home/ubuntu/Downloads/batch.csv', 'w') as f:
+                    f.write('value1,value2,value3,value4,value5,value6\n')
+                    for x in range(1_000_000):
+                        f.write(f"{random.randint(-2147483648, 2147483647)},{generate_random_string(100)},{generate_random_string(100)},{generate_random_string(100)},{generate_random_string(100)},{generate_random_string(100)}\n")
+                self.pg.upload_csv('batch.csv', 'batch')
+                os.remove('batch.csv')
+
+                time.sleep(3600)
         except:
             stop.value = True
             logger.error('Stopping for error')
