@@ -373,8 +373,8 @@ class Batch(multiprocessing.Process):
                     f.write('value1,value2,value3,value4,value5,value6\n')
                     for x in range(1_000_000):
                         f.write(f"{random.randint(-2147483648, 2147483647)},{generate_random_string(100)},{generate_random_string(100)},{generate_random_string(100)},{generate_random_string(100)},{generate_random_string(100)}\n")
-                self.pg.upload_csv('batch.csv', 'batch')
-                os.remove('batch.csv')
+                self.pg.upload_csv('/home/ubuntu/Downloads/batch.csv', 'public.batch')
+                os.remove('/home/ubuntu/Downloads/batch.csv')
 
                 time.sleep(3600)
         except:
@@ -390,7 +390,8 @@ if __name__ == '__main__':
         # BigText(),
         Truncate(),
         Delete(),
-        Update(),
+        # Update(),
+        Batch()
     ]
     for p in ps:
         p.start()
