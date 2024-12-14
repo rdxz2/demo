@@ -6,39 +6,19 @@ conda activate xz2democdc312
 pip install -r requirements.txt
 ```
 
-# PostgreSQL installation
+# Running the service locally
 
 ```sh
-docker volume create pg__data
-
-docker run \
-    --name pg \
-    -d \
-    -p 5432:5432 \
-    -e POSTGRES_PASSWORD=12321 \
-    -v pg__data:/var/lib/postgresql/data \
-    postgres:16
+docker compose up --build
 ```
 
-## Streamed database
+# Deploying
 
-```sql
-ALTER SYSTEM SET wal_level = logical;
-SHOW wal_level;
-
-CREATE USER repl WITH PASSWORD '12321';
-ALTER ROLE repl WITH REPLICATION LOGIN;
-```
+## Building docker image
 
 ```sh
-docker restart pg
+docker build -t xz2-demo-cdc-streamer:v0.0.1 Dockerfile.streamer
+docker build -t xz2-demo-cdc-uploader:v0.0.1 Dockerfile.uploader
 ```
 
-```sql
-CREATE DATABASE stream;
-GRANT SELECT ON ALL TABLES IN SCHEMA public to repl;
-\c stream
-CREATE PUBLICATION "stream" FOR ALL TABLES;
-
--- Replication slot will be automatically created by the streamer
-```
+## Running docker container
