@@ -193,7 +193,7 @@ class LogicalReplicationStreamer:
             logger.warning('Gracefully stopped consumer thread')
 
     def write_to_file(self, decoded_msg: TransactionEvent) -> None:
-        filename = os.path.join(STREAM_OUTPUT_DIR, f'{decoded_msg.transaction.commit_ts.strftime("%Y%m%d%H%M%S")}-{decoded_msg.table.fqn}.json')
+        filename = os.path.join(STREAM_OUTPUT_DIR, f'{decoded_msg.transaction.commit_ts.strftime("%Y%m%d%H%M%S%f")}-{decoded_msg.table.fqn}.json')
         dirname = os.path.dirname(filename)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
