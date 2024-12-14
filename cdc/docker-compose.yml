@@ -1,0 +1,25 @@
+version: '3.9'
+
+services:
+  streamer:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamer
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+      - ./output:/app/output
+      - ./sa.json:/app/sa.json
+    network_mode: host
+
+  uploader:
+    build:
+      context: .
+      dockerfile: Dockerfile.uploader
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+      - ./output:/app/output
+      - ./sa.json:/app/sa.json
