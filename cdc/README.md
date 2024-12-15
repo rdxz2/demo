@@ -6,7 +6,7 @@ conda activate xz2democdc312
 pip install -r requirements.txt
 ```
 
-# Running the service locally
+# Running streamer and uploader the service locally
 
 ```sh
 docker compose up --build
@@ -19,4 +19,11 @@ docker compose up --build
 ```sh
 docker build -t xz2-demo-cdc-streamer:v0.0.1 Dockerfile.streamer
 docker build -t xz2-demo-cdc-uploader:v0.0.1 Dockerfile.uploader
+```
+
+# Running merger script
+
+```sh
+conda activate xz2democdc312
+python cdc_merger.py
 ```
