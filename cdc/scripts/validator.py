@@ -24,7 +24,7 @@ BQ_PROJECT_ID = os.environ['BQ_PROJECT_ID']
 BQ_LOG_TABLE_PREFIX = os.environ['BQ_LOG_TABLE_PREFIX']
 
 if __name__ == '__main__':
-    client = bigquery.Client.from_service_account_json('../' + SA_FILENAME)
+    client = bigquery.Client.from_service_account_json(os.path.join(os.path.pardir, SA_FILENAME))
 
     conn = psycopg.connect(f'postgresql://{REPL_DB_USER}:{REPL_DB_PASS}@{REPL_DB_HOST}:{REPL_DB_PORT}/{REPL_DB_NAME}')
     cursor = conn.cursor()
@@ -112,7 +112,7 @@ if __name__ == '__main__':
                     logger.warning('Success')
                     is_matched = True
                     break
-            
+
             if not is_matched:
                 logger.error(f'Validation failed for {table_schema}.{table_name}')
                 mismatches.append((table_schema, table_name, ms, max_id, v_pg, v_bq))
