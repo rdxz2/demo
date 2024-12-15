@@ -260,6 +260,7 @@ class Truncate(ReplicationMessagePayload):  # https://www.postgresql.org/docs/cu
 class Decoder:
     def __init__(self, dsn: str) -> None:
         self.transaction = None
+        self.message_order = None
 
         self.map__dtype_oid__dtype = {}  # { oid: dtype }
         self.map__relation_oid__table: dict[int, PgTable] = {}  # { oid: PgTable }
@@ -286,20 +287,25 @@ class Decoder:
             case 'B':
                 if self.transaction:
                     raise ValueError(f'Previous transaction not closed: {self.transaction}')
+                self.message_order = 0
                 self.transaction = self.decode_begin(msg)  # Denotes beginning of a transaction
             case 'I':
                 if not self.transaction:
                     raise ValueError(f'No transaction found for message: {msg}')
+                self.message_order += 1
                 return self.decode_insert(msg)
             case 'U':
                 if not self.transaction:
                     raise ValueError(f'No transaction found for message: {msg}')
+                self.message_order += 1
                 return self.decode_update(msg)
             case 'D':
+                self.message_order += 1
                 if not self.transaction:
                     raise ValueError(f'No transaction found for message: {msg}')
                 return self.decode_delete(msg)
             case 'T':
+                self.message_order += 1
                 if not self.transaction:
                     raise ValueError(f'No transaction found for message: {msg}')
                 return self.decode_truncate(msg)
@@ -363,6 +369,7 @@ class Decoder:
         msg.payload = None
         return [TransactionEvent(
             op=insert.byte1,  # Must be 'I'
+            ord=self.message_order,
             replication_msg=msg,
             transaction=self.transaction,
             table=self.map__relation_oid__table[insert.relation_oid],
@@ -376,6 +383,7 @@ class Decoder:
         if update.old_tuple is not None:
             transaction_events.append(TransactionEvent(
                 op=EnumOp.BEFORE,  # Hardcoded into 'B' for 'Before'
+                ord=self.message_order,
                 replication_msg=msg,
                 transaction=self.transaction,
                 table=self.map__relation_oid__table[update.relation_oid],
@@ -384,6 +392,7 @@ class Decoder:
 
         transaction_events.append(TransactionEvent(
             op=update.byte1,  # Must be 'U'
+            ord=self.message_order,
             replication_msg=msg,
             transaction=self.transaction,
             table=self.map__relation_oid__table[update.relation_oid],
@@ -397,6 +406,7 @@ class Decoder:
         msg.payload = None
         return [TransactionEvent(
             op=delete.byte1,  # Must be 'D'
+            ord=self.message_order,
             replication_msg=msg,
             transaction=self.transaction,
             table=self.map__relation_oid__table[delete.relation_oid],
@@ -408,6 +418,7 @@ class Decoder:
         msg.payload = None
         return [TransactionEvent(
             op=truncate.byte1,  # Must be 'T'
+            ord=self.message_order,
             replication_msg=msg,
             transaction=self.transaction,
             table=self.map__relation_oid__table[relation_oid],

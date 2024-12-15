@@ -50,6 +50,7 @@ class ReplicationMessage:  # The original replication message
 @dataclass
 class TransactionEvent:  # Decoded replication message
     op: EnumOp
+    ord: int
     replication_msg: ReplicationMessage
     transaction: Transaction
     table: PgTable

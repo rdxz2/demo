@@ -39,10 +39,14 @@ UPLOADER_FILE_POLL_INTERVAL_S = int(os.environ['UPLOADER_FILE_POLL_INTERVAL_S'])
 UPLOADER_STREAM_CHUNK_SIZE_B = int(os.environ['UPLOADER_STREAM_CHUNK_SIZE_B'])
 UPLOADER_NO_FILE_REPORT_INTERVAL_S = int(os.environ['UPLOADER_NO_FILE_REPORT_INTERVAL_S'])
 
+BQ_PROJECT_ID = os.environ['BQ_PROJECT_ID']
+BQ_LOG_TABLE_PREFIX = os.environ['BQ_LOG_TABLE_PREFIX']
+
 DISCORD_WEBHOOK_URL = os.environ['DISCORD_WEBHOOK_URL']
 
 META_PG_COLUMNS = [
     PgColumn(name='__m_op', dtype='varchar', bq_dtype='STRING', proto_dtype='string'),
+    PgColumn(name='__m_ord', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
     PgColumn(name='__m_lsn', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
     PgColumn(name='__m_send_ts', dtype='timestamp with time zone', bq_dtype='TIMESTAMP', proto_dtype='int64'),
     PgColumn(name='__m_size', dtype='int', bq_dtype='INT64', proto_dtype='int32'),
@@ -72,7 +76,7 @@ class Uploader:
     def __init__(self) -> None:
         self.bq_client = bigquery.Client.from_service_account_json(SA_FILENAME)
         self.write_client = bigquery_storage_v1.BigQueryWriteClient.from_service_account_json(SA_FILENAME)
-        self.dataset_id_log = f'log__{REPL_DB_NAME}'
+        self.dataset_id_log = f'{BQ_LOG_TABLE_PREFIX}{REPL_DB_NAME}'
         self.dataset_id_main = REPL_DB_NAME
         # self.append_rows_streams: dict[str, writer.AppendRowsStream] = {}
         logger.debug(f'Connected to BQ: {self.bq_client.project}')
@@ -84,7 +88,7 @@ class Uploader:
             SELECT CONCAT(table_catalog, '.', table_schema, '.', table_name) AS fqn
                 , column_name
                 , data_type AS dtype
-            FROM `{self.bq_client.project}.{self.dataset_id_log}.INFORMATION_SCHEMA.COLUMNS`
+            FROM `{BQ_PROJECT_ID}.{self.dataset_id_log}.INFORMATION_SCHEMA.COLUMNS`
             WHERE column_name NOT LIKE r'\_\_%'  -- Exclude metadata columns
             '''
         )
@@ -240,7 +244,7 @@ class Uploader:
 
         pg_table_db, pg_table_schema, pg_table_name = pg_table_fqn.split('.')
 
-        bq_table_log_fqn = f'{self.bq_client.project}.{self.dataset_id_log}.{pg_table_schema}__{pg_table_name}'
+        bq_table_log_fqn = f'{BQ_PROJECT_ID}.{self.dataset_id_log}.{pg_table_schema}__{pg_table_name}'
 
         # Detect schema changes
         for filename in sorted(filenames):  # Ensure transactions order

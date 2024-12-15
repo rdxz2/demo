@@ -202,6 +202,7 @@ class LogicalReplicationStreamer:
         data = {
             # Metadata: message
             '__m_op': decoded_msg.op,
+            '__m_ord': decoded_msg.ord,
             '__m_lsn': decoded_msg.replication_msg.data_start,
             '__m_send_ts': decoded_msg.replication_msg.send_time,
             '__m_size': decoded_msg.replication_msg.data_size,
