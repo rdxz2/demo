@@ -20,5 +20,3 @@ docker compose up --build
 docker build -t xz2-demo-cdc-streamer:v0.0.1 Dockerfile.streamer
 docker build -t xz2-demo-cdc-uploader:v0.0.1 Dockerfile.uploader
 ```
-
-## Running docker container
