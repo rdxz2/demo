@@ -390,8 +390,8 @@ if __name__ == '__main__':
         # BigText(),
         Truncate(),
         Delete(),
-        # Update(),
-        Batch()
+        Update(),
+        Batch(),
     ]
     for p in ps:
         p.start()
