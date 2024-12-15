@@ -1,72 +1,90 @@
+import dotenv
 import json
-import multiprocessing
 import os
+import psycopg2
+import psycopg2.extensions
+import psycopg2.extras
 import random
-import sys
+import string
+import threading
 import time
+import traceback
+import uuid
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from loguru import logger
 
-from utill.my_string import generate_random_string
-from utill.my_pg_v2 import PG
+dotenv.load_dotenv()
 
-logger.remove()
-logger.add(sys.stdout, level='INFO')
+stop_event = threading.Event()
 
-stop = multiprocessing.Value('b', False)
+REPL_DB_HOST = os.environ['REPL_DB_HOST']
+REPL_DB_PORT = int(os.environ['REPL_DB_PORT'])
+REPL_DB_USER = 'postgres'
+REPL_DB_PASS = '12321'
+REPL_DB_NAME = os.environ['REPL_DB_NAME']
 
-PG_CONN_NAME = 'stream-local-postgres'
+
+def connect():
+    dsn = psycopg2.extensions.make_dsn(host=REPL_DB_HOST, port=REPL_DB_PORT, user=REPL_DB_USER, password=REPL_DB_PASS, database=REPL_DB_NAME, application_name=f'producer-{REPL_DB_NAME}-{uuid.uuid4()}')
+    conn = psycopg2.connect(dsn)
+    cursor = conn.cursor()
+    return conn, cursor
 
 
 def randomize_sleep_time(): return random.randint(2, 10)
 
 
-class AllDtype(multiprocessing.Process):
+def generate_random_string(length: int = 16, is_alphanum: bool = True):
+    letters = string.ascii_letters
+    if not is_alphanum:
+        letters += r'1234567890!@#$%^&*()-=_+[]{};\':",./<>?'
+    return ''.join(random.choice(letters) for i in range(length))
+
+
+def all_dtype():
     """
     Generate tables with all data types
     """
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.pg = PG(PG_CONN_NAME)
+    conn, cursor = connect()
+    logger.info(f'{all_dtype.__name__} started')
 
-    def run(self):
-        logger.info(f'{AllDtype.__name__} started')
+    try:
+        # Create table
+        cursor.execute(
+            f'''
+            CREATE TABLE IF NOT EXISTS all_dtype (
+                id SERIAL PRIMARY KEY,
+                t_smallint SMALLINT,
+                t_int INTEGER,
+                t_bigint BIGINT,
+                t_varchar VARCHAR(100),
+                t_text TEXT,
+                t_json JSON,
+                t_double DOUBLE PRECISION,
+                t_bool BOOLEAN,
+                t_ts TIMESTAMPTZ,
+                t_dt TIMESTAMP,
+                t_date DATE,
+                t_time TIME,
+                t_byte BYTEA
+            );
+            ALTER TABLE all_dtype REPLICA IDENTITY FULL;
+            '''
+        )
+        conn.commit()
 
-        try:
-            # Create table
-            self.pg.execute_query(
+        while not stop_event.is_set():
+            cursor.execute(
                 f'''
-                CREATE TABLE IF NOT EXISTS all_dtype (
-                    id SERIAL PRIMARY KEY,
-                    t_smallint SMALLINT,
-                    t_int INTEGER,
-                    t_bigint BIGINT,
-                    t_varchar VARCHAR(100),
-                    t_text TEXT,
-                    t_json JSON,
-                    t_double DOUBLE PRECISION,
-                    t_bool BOOLEAN,
-                    t_ts TIMESTAMPTZ,
-                    t_dt TIMESTAMP,
-                    t_date DATE,
-                    t_time TIME,
-                    t_byte BYTEA
-                );
-                ALTER TABLE all_dtype REPLICA IDENTITY FULL;
-                '''
-            )
-
-            while True:
-                self.pg.execute_query(
-                    f'''
-                    INSERT INTO all_dtype (t_smallint, t_int, t_bigint, t_varchar, t_text, t_json, t_double, t_bool, t_ts, t_dt, t_date, t_time, t_byte) VALUES
-                    (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s),
-                    (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s),
-                    (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
-                    ''',
+                INSERT INTO all_dtype (t_smallint, t_int, t_bigint, t_varchar, t_text, t_json, t_double, t_bool, t_ts, t_dt, t_date, t_time, t_byte) VALUES
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s),
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s),
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                ''',
+                (
                     # Row 1
                     random.randint(-32768, 32767),
                     random.randint(-2147483648, 2147483647),
@@ -111,294 +129,265 @@ class AllDtype(multiprocessing.Process):
                     datetime.now(),
                     datetime.now().date(),
                     datetime.now().time(),
-                    bytes(random.randint(0, 255)),
-                )
-                time.sleep(randomize_sleep_time())
-        except:
-            stop.value = True
-            logger.error('Stopping for error')
-            raise
+                    bytes(random.randint(0, 255))
+                ),
+            )
+            conn.commit()
+            logger.debug(f'{all_dtype.__name__} inserted')
+            time.sleep(randomize_sleep_time())
+        logger.warning(f'{all_dtype.__name__} gracefully stopping')
+    except Exception as e:
+        stop_event.set()
+        logger.error(f'{all_dtype.__name__} stopping for error --> {e}\t{traceback.format_exc()}')
+        raise
 
 
-class Gen100(multiprocessing.Process):
+def gen100():
     """
     Generate 100 tables and insert data into them
     """
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.pg = PG(PG_CONN_NAME)
+    conn, cursor = connect()
+    logger.info(f'{gen100.__name__} started')
 
-    def insert(self, i: int):
-        # Create table
-        self.pg.execute_query(
-            f'''
-            CREATE TABLE IF NOT EXISTS gen_{i} (
-                id SERIAL PRIMARY KEY,
-                value1 INTEGER,
-                value2 VARCHAR(10),
-                value3 TIMESTAMPTZ
-            );
-            ALTER TABLE gen_{i} REPLICA IDENTITY FULL;
-            ''',
-        )
-
-        while True:
-            if stop.value:
-                logger.warning(f'Exiting thread Gen100: {i}')
-                break
-
-            self.pg.execute_query(
-                f'''INSERT INTO gen_{i} (value1, value2, value3) VALUES (%s, %s, %s);''',
-                random.randint(1, 10000),
-                generate_random_string(10),
-                datetime.now(timezone.utc),
+    try:
+        for i in range(100):
+            cursor.execute(
+                f'''
+                CREATE TABLE IF NOT EXISTS gen_{i} (
+                    id SERIAL PRIMARY KEY,
+                    value1 INTEGER,
+                    value2 VARCHAR(10),
+                    value3 TIMESTAMPTZ
+                );
+                ALTER TABLE gen_{i} REPLICA IDENTITY FULL;
+                ''',
             )
+            conn.commit()
+
+        while not stop_event.is_set():
+            ranges = [x for x in range(100)]
+            random.shuffle(ranges)
+            for i in ranges:
+                cursor.execute(
+                    f'''INSERT INTO gen_{i} (value1, value2, value3) VALUES (%s, %s, %s);''',
+                    (
+                        random.randint(1, 10000),
+                        generate_random_string(10),
+                        datetime.now(timezone.utc),
+                    ),
+                )
+                conn.commit()
+            logger.debug(f'{gen100.__name__} inserted')
             time.sleep(randomize_sleep_time())
-
-    def run(self):
-        logger.info(f'{Gen100.__name__} started')
-
-        try:
-            with ThreadPoolExecutor(max_workers=100) as executor:
-                futures = [executor.submit(self.insert, i) for i in range(100)]
-                [f.result() for f in futures]
-        except:
-            stop.value = True
-            logger.error('Stopping for error')
-            raise
+        logger.warning(f'{gen100.__name__} gracefully stopping')
+    except Exception as e:
+        stop_event.set()
+        logger.error(f'{gen100.__name__} stopping for error --> {e}\t{traceback.format_exc()}')
+        raise
 
 
-# class BigText(multiprocessing.Process):
-#     """
-#     Generate rows with big amount of text
-#     """
-
-#     def __init__(self) -> None:
-#         super().__init__()
-#         self.pg = PG(PG_CONN_NAME)
-
-#     def run(self):
-#         logger.info(f'{BigText.__name__} started')
-
-#         try:
-
-#             self.pg.execute_query(
-#                 f'''
-#                 CREATE TABLE IF NOT EXISTS big_text (
-#                     id SERIAL PRIMARY KEY,
-#                     value1 TEXT
-#                 );
-#                 ALTER TABLE big_text REPLICA IDENTITY FULL;
-#                 ''',
-#             )
-
-#             while True:
-#                 self.pg.execute_query(
-#                     f'''INSERT INTO big_text (value1) VALUES (%s);''',
-#                     generate_random_string(random.randint(100_000, 1_000_000)),
-#                     #
-#                 )
-#                 time.sleep(600)
-#         except:
-#             stop.value = True
-#             logger.error('Stopping for error')
-#             raise
-
-
-class Truncate(multiprocessing.Process):
+def truncate():
     """
     Generate table, insert values, and truncate
     """
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.pg = PG(PG_CONN_NAME)
+    conn, cursor = connect()
+    logger.info(f'{truncate.__name__} started')
 
-    def run(self):
-        logger.info(f'{Truncate.__name__} started')
+    try:
+        # Create table
+        cursor.execute(
+            f'''
+            CREATE TABLE IF NOT EXISTS ttruncate (
+                id SERIAL PRIMARY KEY,
+                value1 INTEGER
+            );
+            ALTER TABLE ttruncate REPLICA IDENTITY FULL;
+            ''',
+        )
+        conn.commit()
 
-        try:
-            # Create table
-            self.pg.execute_query(
-                f'''
-                CREATE TABLE IF NOT EXISTS ttruncate (
-                    id SERIAL PRIMARY KEY,
-                    value1 INTEGER
-                );
-                ALTER TABLE ttruncate REPLICA IDENTITY FULL;
-                ''',
+        while not stop_event.is_set():
+            cursor.execute(
+                f'''INSERT INTO ttruncate (value1) VALUES (%s), (%s), (%s), (%s), (%s);''',
+                (
+                    random.randint(1, 1000),
+                    random.randint(1, 1000),
+                    random.randint(1, 1000),
+                    random.randint(1, 1000),
+                    random.randint(1, 1000),
+                ),
             )
+            conn.commit()
+            logger.debug(f'{truncate.__name__} inserted')
+            time.sleep(randomize_sleep_time())
 
-            while True:
-                self.pg.execute_query(
-                    f'''INSERT INTO ttruncate (value1) VALUES (%s), (%s), (%s), (%s), (%s);''',
-                    random.randint(1, 1000),
-                    random.randint(1, 1000),
-                    random.randint(1, 1000),
-                    random.randint(1, 1000),
-                    random.randint(1, 1000),
-                )
-                time.sleep(randomize_sleep_time())
-
-                self.pg.execute_query(
-                    f'''TRUNCATE TABLE ttruncate;''',
-                )
-                time.sleep(randomize_sleep_time())
-        except:
-            stop.value = True
-            logger.error('Stopping for error')
-            raise
+            cursor.execute(
+                f'''TRUNCATE TABLE ttruncate;''',
+            )
+            conn.commit()
+            logger.debug(f'{truncate.__name__} truncated')
+            time.sleep(randomize_sleep_time())
+        logger.warning(f'{truncate.__name__} gracefully stopping')
+    except Exception as e:
+        stop_event.set()
+        logger.error(f'{truncate.__name__} stopping for error --> {e}\t{traceback.format_exc()}')
+        raise
 
 
-class Delete(multiprocessing.Process):
+def delete():
     """
     Generate table, insert values, and delete
     """
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.pg = PG(PG_CONN_NAME)
+    conn, cursor = connect()
+    logger.info(f'{delete.__name__} started')
 
-    def run(self):
-        logger.info(f'{Delete.__name__} started')
+    try:
+        # Create table
+        cursor.execute(
+            f'''
+            CREATE TABLE IF NOT EXISTS tdelete (
+                id SERIAL PRIMARY KEY,
+                value1 INTEGER
+            );
+            ALTER TABLE tdelete REPLICA IDENTITY FULL;
+            ''',
+        )
 
-        try:
-            # Create table
-            self.pg.execute_query(
-                f'''
-                CREATE TABLE IF NOT EXISTS tdelete (
-                    id SERIAL PRIMARY KEY,
-                    value1 INTEGER
-                );
-                ALTER TABLE tdelete REPLICA IDENTITY FULL;
-                ''',
-            )
-
-            while True:
-                # Insert
-                self.pg.execute_query(
-                    f'''INSERT INTO tdelete (value1) VALUES (%s);''',
+        while not stop_event.is_set():
+            # Insert
+            cursor.execute(
+                f'''INSERT INTO tdelete (value1) VALUES (%s);''',
+                (
                     random.randint(1, 1000),
                 )
-                time.sleep(randomize_sleep_time())
+            )
+            conn.commit()
+            logger.debug(f'{delete.__name__} inserted')
+            time.sleep(randomize_sleep_time())
 
-                # Delete
-                self.pg.execute_query(
-                    f'''DELETE FROM tdelete;''',
-                )
-                time.sleep(randomize_sleep_time())
-        except:
-            stop.value = True
-            logger.error('Stopping for error')
-            raise
+            # Delete
+            cursor.execute(
+                f'''DELETE FROM tdelete;''',
+            )
+            conn.commit()
+            logger.debug(f'{delete.__name__} deleted')
+            time.sleep(randomize_sleep_time())
+        logger.warning(f'{delete.__name__} gracefully stopping')
+    except Exception as e:
+        stop_event.set()
+        logger.error(f'{delete.__name__} stopping for error --> {e}\t{traceback.format_exc()}')
+        raise
 
 
-class Update(multiprocessing.Process):
+def update():
     """
     Generate table, insert values, and update
     """
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.pg = PG(PG_CONN_NAME)
+    conn, cursor = connect()
+    logger.info(f'{update.__name__} started')
 
-    def run(self):
-        logger.info(f'{Update.__name__} started')
+    try:
+        # Create table
+        cursor.execute(
+            f'''
+            CREATE TABLE IF NOT EXISTS tupdate (
+                id SERIAL PRIMARY KEY,
+                value1 INTEGER
+            );
+            ALTER TABLE tupdate REPLICA IDENTITY FULL;
+            ''',
+        )
 
-        try:
-            # Create table
-            self.pg.execute_query(
-                f'''
-                CREATE TABLE IF NOT EXISTS tupdate (
-                    id SERIAL PRIMARY KEY,
-                    value1 INTEGER
-                );
-                ALTER TABLE tupdate REPLICA IDENTITY FULL;
-                ''',
+        while not stop_event.is_set():
+            # Insert
+            cursor.execute(
+                f'''INSERT INTO tupdate (value1) VALUES (%s);''',
+                (
+                    random.randint(1, 1000),
+                ),
             )
+            conn.commit()
+            logger.debug(f'{update.__name__} inserted')
+            time.sleep(randomize_sleep_time())
 
-            while True:
-                # Insert
-                self.pg.execute_query(
-                    f'''INSERT INTO tupdate (value1) VALUES (%s);''',
+            # Update
+            cursor.execute(
+                f'''UPDATE tupdate SET value1 = %s;''',
+                (
                     random.randint(1, 1000),
-                )
-                time.sleep(randomize_sleep_time())
-
-                # Update
-                self.pg.execute_query(
-                    f'''UPDATE tupdate SET value1 = %s;''',
-                    random.randint(1, 1000),
-                )
-                time.sleep(randomize_sleep_time())
-        except:
-            stop.value = True
-            logger.error('Stopping for error')
-            raise
+                ),
+            )
+            conn.commit()
+            logger.debug(f'{update.__name__} updated')
+            time.sleep(randomize_sleep_time())
+        logger.warning(f'{update.__name__} gracefully stopping')
+    except Exception as e:
+        stop_event.set()
+        logger.error(f'{update.__name__} stopping for error --> {e}\t{traceback.format_exc()}')
+        raise
 
 
-class Batch(multiprocessing.Process):
+def batch():
     """
     Generate large batch of rows
     """
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.pg = PG(PG_CONN_NAME)
+    conn, cursor = connect()
+    logger.info(f'{batch.__name__} started')
 
-    def run(self):
-        logger.info(f'{Batch.__name__} started')
+    try:
+        # Create table
+        cursor.execute(
+            f'''
+            CREATE TABLE IF NOT EXISTS batch (
+                id SERIAL PRIMARY KEY,
+                value1 INTEGER,
+                value2 VARCHAR(1000),
+                value3 VARCHAR(1000),
+                value4 VARCHAR(1000),
+                value5 VARCHAR(1000),
+                value6 VARCHAR(1000)
+            );
+            ALTER TABLE batch REPLICA IDENTITY FULL;
+            ''',
+        )
 
-        try:
-            # Create table
-            self.pg.execute_query(
-                f'''
-                CREATE TABLE IF NOT EXISTS batch (
-                    id SERIAL PRIMARY KEY,
-                    value1 INTEGER,
-                    value2 VARCHAR(1000),
-                    value3 VARCHAR(1000),
-                    value4 VARCHAR(1000),
-                    value5 VARCHAR(1000),
-                    value6 VARCHAR(1000)
-                );
-                ALTER TABLE batch REPLICA IDENTITY FULL;
-                ''',
-            )
-
-            while True:
-                # Insert
-                with open('/home/ubuntu/Downloads/batch.csv', 'w') as f:
-                    f.write('value1,value2,value3,value4,value5,value6\n')
-                    for x in range(1_000_000):
-                        f.write(f"{random.randint(-2147483648, 2147483647)},{generate_random_string(100)},{generate_random_string(100)},{generate_random_string(100)},{generate_random_string(100)},{generate_random_string(100)}\n")
-                self.pg.upload_csv('/home/ubuntu/Downloads/batch.csv', 'public.batch')
-                os.remove('/home/ubuntu/Downloads/batch.csv')
-
-                time.sleep(3600)
-        except:
-            stop.value = True
-            logger.error('Stopping for error')
-            raise
+        while not stop_event.is_set():
+            time.sleep(3600)
+            # Insert
+            with open('./batch.csv', 'w') as f:
+                f.write('value1,value2,value3,value4,value5,value6\n')
+                for x in range(1_000_000):
+                    f.write(f"{random.randint(-2147483648, 2147483647)},{generate_random_string(100)},{generate_random_string(100)},{generate_random_string(100)},{generate_random_string(100)},{generate_random_string(100)}\n")
+            cursor.copy_expert(f"COPY batch (value1,value2,value3,value4,value5,value6) FROM STDIN WITH CSV HEADER", open('./batch.csv', 'r'))
+            conn.commit()
+            os.remove('./batch.csv')
+            logger.debug(f'{batch.__name__} copied')
+        logger.warning(f'{batch.__name__} gracefully stopping')
+    except Exception as e:
+        stop_event.set()
+        logger.error(f'{batch.__name__} stopping for error --> {e}\t{traceback.format_exc()}')
+        raise
 
 
 if __name__ == '__main__':
-    ps = [
-        AllDtype(),
-        Gen100(),
-        # BigText(),
-        Truncate(),
-        Delete(),
-        Update(),
-        Batch(),
+    logger.info('Start producing...')
+    functions = [
+        all_dtype,
+        gen100,
+        truncate,
+        delete,
+        update,
+        batch,
     ]
-    for p in ps:
-        p.start()
 
-    for p in ps:
-        p.join()
-        logger.warning('Joined')
+    # Execute
+    with ThreadPoolExecutor(max_workers=len(functions)) as executor:
+        fs = [executor.submit(f) for f in functions]
+        [f.result() for f in fs]
 
-    logger.info('Exiting')
-    quit()
+    logger.info('Stop producing')
