@@ -169,6 +169,7 @@ class Uploader:
                 current_chunk_size = 0
                 list__proto_rows.append(types.ProtoRows())
 
+        total = len(list__proto_rows)
         for i, proto_rows in enumerate(list__proto_rows):
             parent = self.write_client.table_path(*bq_table_log_fqn.split('.'))
             # write_stream = types.WriteStream()
@@ -210,7 +211,7 @@ class Uploader:
             # error, which can be safely ignored.
             #
             # The first request must always have an offset of 0.
-            logger.debug(f'{bq_table_log_fqn}: sending chunk {i + 1} ({proto_rows.serialized_rows.__len__()} rows)')
+            logger.debug(f'{bq_table_log_fqn}: sending chunk ({i + 1} / {total}) ({proto_rows.serialized_rows.__len__()} rows)')
             request = types.AppendRowsRequest()
             # request.offset = 0
             proto_data = types.AppendRowsRequest.ProtoData()
