@@ -316,7 +316,7 @@ def update():
 
             # Update
             cursor.execute(
-                f'''UPDATE tupdate SET value1 = %s;''',
+                f'''UPDATE tupdate SET value1 = %s WHERE id > (SELECT MAX(id) - 10 FROM tupdate);''',
                 (
                     random.randint(1, 1000),
                 ),
