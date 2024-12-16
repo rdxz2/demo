@@ -355,6 +355,7 @@ def batch():
             ALTER TABLE batch REPLICA IDENTITY FULL;
             ''',
         )
+        conn.commit()
 
         while not stop_event.is_set():
             time.sleep(3600)
