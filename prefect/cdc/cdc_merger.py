@@ -1,6 +1,5 @@
 import dotenv
 import glob
-import logging
 import os
 import psycopg2
 import psycopg2.extensions
@@ -12,14 +11,12 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timezone
 from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
-from loguru import logger
+from prefect import flow, task
+from prefect.logging import get_run_logger
 from queue import Queue, Empty
 from threading import Thread
 
 dotenv.load_dotenv()
-
-if os.environ['DEBUG'] == '1':
-    logging.basicConfig(level=logging.DEBUG)
 
 SA_FILENAME = os.environ['SA_FILENAME']
 
@@ -29,12 +26,6 @@ META_DB_USER = os.environ['META_DB_USER']
 META_DB_PASS = os.environ['META_DB_PASS']
 META_DB_NAME = os.environ['META_DB_NAME']
 
-REPL_DB_HOST = os.environ['REPL_DB_HOST']
-REPL_DB_PORT = int(os.environ['REPL_DB_PORT'])
-REPL_DB_USER = os.environ['REPL_DB_USER']
-REPL_DB_PASS = os.environ['REPL_DB_PASS']
-REPL_DB_NAME = os.environ['REPL_DB_NAME']
-
 BQ_PROJECT_ID = os.environ['BQ_PROJECT_ID']
 BQ_LOG_TABLE_PREFIX = os.environ['BQ_LOG_TABLE_PREFIX']
 
@@ -42,17 +33,32 @@ MERGER_THREADS = int(os.environ['MERGER_THREADS'])
 
 MIGRATION_TABLE = 'public.migration'
 
+APPLICATION_NAME = f'cdc-merger-{META_DB_NAME}-{uuid.uuid1()}'
+
+
+def get_meta_connection():
+    dsn = psycopg2.extensions.make_dsn(host=META_DB_HOST, port=META_DB_PORT, user=META_DB_USER, password=META_DB_PASS, database=META_DB_NAME, application_name=APPLICATION_NAME)
+    conn = psycopg2.connect(dsn)
+    cursor = conn.cursor()
+    return conn, cursor
+
 
 class Merger:
-    def __init__(self, cutoff_ts: datetime):
+    def __init__(self, db: str, cutoff_ts: datetime):
+        self.db = db
         self.cutoff_ts = cutoff_ts
         self.cutoff_ts_us = int(self.cutoff_ts.timestamp() * 1000000)  # Microseconds
 
-        dsn = psycopg2.extensions.make_dsn(host=META_DB_HOST, port=META_DB_PORT, user=META_DB_USER, password=META_DB_PASS, database=META_DB_NAME, application_name=f'cdc-merger-{META_DB_NAME}-{uuid.uuid4()}')
-        self.meta_conn = psycopg2.connect(dsn)
-        self.meta_cursor = self.meta_conn.cursor()
+        self.meta_conn, self.meta_cursor = get_meta_connection()
 
-        dsn = psycopg2.extensions.make_dsn(host=REPL_DB_HOST, port=REPL_DB_PORT, user=REPL_DB_USER, password=REPL_DB_PASS, database=REPL_DB_NAME, application_name=f'cdc-merger-{REPL_DB_NAME}-{uuid.uuid4()}')
+        dsn = psycopg2.extensions.make_dsn(
+            host=os.environ[f'{db.upper()}_DB_HOST'],
+            port=int(os.environ[f'{db.upper()}_DB_PORT']),
+            user=os.environ[f'{db.upper()}_DB_USER'],
+            password=os.environ[f'{db.upper()}_DB_PASS'],
+            database=os.environ[f'{db.upper()}_DB_NAME'],
+            application_name=APPLICATION_NAME
+        )
         self.repl_conn = psycopg2.connect(dsn)
         self.repl_cursor = self.repl_conn.cursor()
 
@@ -60,6 +66,8 @@ class Merger:
 
         self.q_update_last_cutoff_ts = Queue()
         self.q_stop_event = threading.Event()
+
+        self.logger = get_run_logger()
 
     def run(self):
         # <<----- START: Apply migrations
@@ -75,7 +83,7 @@ class Merger:
         if not self.meta_cursor.fetchone()[0]:
             self.meta_cursor.execute(f'CREATE TABLE {MIGRATION_TABLE} (created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, id SERIAL PRIMARY KEY, name VARCHAR(50) NOT NULL);')
             self.meta_conn.commit()
-            logger.info('Migration table created')
+            self.logger.info('Migration table created')
 
         # Apply migrations
         migrations = {os.path.basename(x) for x in glob.glob('migrations/*.sql')}
@@ -86,12 +94,12 @@ class Merger:
                 self.meta_cursor.execute(f.read())
                 self.meta_cursor.execute(f'INSERT INTO {MIGRATION_TABLE} (name) VALUES (%s);', (new_migration,))
                 self.meta_conn.commit()
-                logger.info(f'Migration {new_migration} applied')
+                self.logger.info(f'Migration {new_migration} applied')
 
         # END: Apply migrations ----->>
 
         # Get all merger tables
-        self.meta_cursor.execute('SELECT "database", "schema", "table", "partition_col", "cluster_cols", "last_cutoff_ts" FROM public.merger WHERE "database" = %s AND "is_active"', (REPL_DB_NAME, ))
+        self.meta_cursor.execute('SELECT "database", "schema", "table", "partition_col", "cluster_cols", "last_cutoff_ts" FROM public.merger WHERE "database" = %s AND "is_active"', (self.db, ))
         tables = self.meta_cursor.fetchall()
 
         # Get PK columns
@@ -136,10 +144,10 @@ class Merger:
     ):
         bq_table_log_fqn = f'{BQ_PROJECT_ID}.{BQ_LOG_TABLE_PREFIX}{database}.{schema}__{table}'
         bq_table_main_fqn = f'{BQ_PROJECT_ID}.{database}.{schema}__{table}'
-        logger.info(f'{bq_table_main_fqn}: merging...')
+        self.logger.debug(f'{bq_table_main_fqn}: merging...')
 
         if last_cutoff_ts >= self.cutoff_ts:
-            logger.warning(f'{bq_table_main_fqn}: last merge timestamp {last_cutoff_ts} is same or later than cutoff timestamp {self.cutoff_ts}')
+            self.logger.info(f'{bq_table_main_fqn}: last merge timestamp {last_cutoff_ts} is same or later than cutoff timestamp {self.cutoff_ts}')
             return
 
         # <<----- START: Detect schema changes
@@ -156,7 +164,7 @@ class Merger:
                 bq_table_main.partitioning_type = 'DAY'
             bq_table_main.clustering_fields = cluster_cols
             bq_table_main = self.bq_client.create_table(bq_table_main)
-            logger.info(f'{bq_table_main_fqn}: table created')
+            self.logger.info(f'{bq_table_main_fqn}: table created')
 
         # New columns
         bq_table_log_schema = {x.name: x for x in bq_table_log_schema}
@@ -164,7 +172,7 @@ class Merger:
         new_columns = [x for x in bq_table_log_schema.keys() if x not in bq_table_main_schema.keys()]  # Using list instead of set to ensure column order
         for new_column in new_columns:
             bq_table_main.schema.append(bq_table_log_schema[new_column])
-            logger.info(f'{bq_table_main_fqn}: new columns added: {new_columns}')
+            self.logger.info(f'{bq_table_main_fqn}: new columns added: {new_columns}')
 
         # END: Detect schema changes ----->>
 
@@ -199,7 +207,7 @@ class Merger:
             WHEN MATCHED AND S.`__m_op` = 'U' THEN UPDATE SET {cols_update_str}
             '''
         )
-        logger.info(f'{bq_table_main_fqn}: merged')
+        self.logger.info(f'{bq_table_main_fqn}: merged')
 
         # Instruct to update cutoff ts serially
         self.q_update_last_cutoff_ts.put((bq_table_main_fqn, database, schema, table))
@@ -214,15 +222,47 @@ class Merger:
                 bq_table_main_fqn, database, schema, table = self.q_update_last_cutoff_ts.get(timeout=1)
                 self.meta_cursor.execute('UPDATE public.merger SET "update_ts" = CURRENT_TIMESTAMP, "last_cutoff_ts" = %s WHERE "database" = %s AND "schema" = %s AND "table" = %s;', (self.cutoff_ts, database, schema, table))
                 self.meta_conn.commit()
-                logger.debug(f'{bq_table_main_fqn}: last cutoff timestamp updated to {self.cutoff_ts}')
+                self.logger.debug(f'{bq_table_main_fqn}: last cutoff timestamp updated to {self.cutoff_ts}')
             except Empty:
                 pass
 
+    def stop(self):
+        self.meta_cursor.close()
+        self.meta_conn.close()
 
-if __name__ == '__main__':
+        self.repl_cursor.close()
+        self.repl_conn.close()
+
+        self.bq_client.close()
+
+        self.logger.info(f'{self.db}: merger stopped')
+
+
+@task
+def merge(db: str, cutoff_ts: datetime):
+    merger = Merger(db, cutoff_ts)
+    merger.run()
+    merger.stop()
+
+
+@flow
+def cdc__cdc_merger():
+    logger = get_run_logger()
+
+    conn, cursor = get_meta_connection()
+    cursor.execute('SELECT DISTINCT "database" FROM public.merger WHERE "is_active";')
+    dbs = [x[0] for x in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+
     cutoff_ts = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
 
-    logger.info('Starting cdc merger...')
-    merger = Merger(cutoff_ts)
-    merger.run()
+    logger.info(f'Starting cdc merger... cutoff_ts = {cutoff_ts}')
+    futures = [merge.with_options(name=f'merge-{db}').submit(db, cutoff_ts) for db in dbs]
+    for future in futures:
+        future.result()
     logger.info('Exiting cdc merger')
+
+
+if __name__ == '__main__':
+    cdc__cdc_merger()

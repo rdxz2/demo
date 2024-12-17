@@ -383,7 +383,7 @@ if __name__ == '__main__':
         truncate,
         delete,
         update,
-        batch,
+        # batch,
     ]
 
     # Execute
