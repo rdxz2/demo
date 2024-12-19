@@ -12,6 +12,7 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 from data import PgColumn, PgTable, BqColumn, BqTable
 from datetime import datetime, timezone
+from google.api_core.exceptions import NotFound
 from google.cloud import bigquery, bigquery_storage_v1
 from google.cloud.bigquery_storage_v1 import types, writer
 from google.protobuf import descriptor_pb2
@@ -40,6 +41,7 @@ UPLOADER_STREAM_CHUNK_SIZE_B = int(os.environ['UPLOADER_STREAM_CHUNK_SIZE_B'])
 UPLOADER_NO_FILE_REPORT_INTERVAL_S = int(os.environ['UPLOADER_NO_FILE_REPORT_INTERVAL_S'])
 
 BQ_PROJECT_ID = os.environ['BQ_PROJECT_ID']
+BQ_DATASET_LOCATION = os.environ['BQ_DATASET_LOCATION']
 BQ_LOG_TABLE_PREFIX = os.environ['BQ_LOG_TABLE_PREFIX']
 
 DISCORD_WEBHOOK_URL = os.environ['DISCORD_WEBHOOK_URL']
@@ -80,6 +82,15 @@ class Uploader:
         self.dataset_id_main = REPL_DB_NAME
         # self.append_rows_streams: dict[str, writer.AppendRowsStream] = {}
         logger.debug(f'Connected to BQ: {self.bq_client.project}')
+
+        # Create dataset if not exists
+        try:
+            self.bq_client.get_dataset(self.dataset_id_log)
+        except NotFound:
+            dataset = bigquery.Dataset(self.dataset_id_log)
+            dataset.location = BQ_DATASET_LOCATION
+            self.bq_client.create_dataset(self.dataset_id_log)
+            logger.info(f'Created dataset: {self.dataset_id_log}')
 
         # Get existing table columns
         self.map__bq_table_fqn__bq_table: dict[str, BqTable] = {}  # { fqn: table}
