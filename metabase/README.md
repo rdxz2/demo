@@ -62,6 +62,5 @@ EXECUTE FUNCTION f__set_replica_identity_full();
 # Run Metabase
 
 ```sql
-source .env.sh
-java -jar metabase.jar
+./run.sh
 ```
