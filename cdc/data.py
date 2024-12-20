@@ -16,6 +16,7 @@ class EnumOp(str, Enum):
 
 @dataclass
 class PgColumn:
+    pk: bool
     name: str
     dtype: str
     bq_dtype: str

@@ -345,6 +345,7 @@ class Decoder:
 
                 # Update table columns
                 self.map__relation_oid__table[relation.oid].columns.append(PgColumn(
+                    pk=relation_column.pk,
                     name=relation_column.name,
                     dtype=self.map__dtype_oid__dtype[relation_column.dtype_oid],
                     bq_dtype=MAP__PG_DTYPE__BQ_DTYPE.get(self.map__dtype_oid__dtype[relation_column.dtype_oid], 'STRING'),

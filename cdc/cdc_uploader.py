@@ -47,15 +47,15 @@ BQ_LOG_TABLE_PREFIX = os.environ['BQ_LOG_TABLE_PREFIX']
 DISCORD_WEBHOOK_URL = os.environ['DISCORD_WEBHOOK_URL']
 
 META_PG_COLUMNS = [
-    PgColumn(name='__m_op', dtype='varchar', bq_dtype='STRING', proto_dtype='string'),
-    PgColumn(name='__m_ord', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
-    PgColumn(name='__m_lsn', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
-    PgColumn(name='__m_send_ts', dtype='timestamp with time zone', bq_dtype='TIMESTAMP', proto_dtype='int64'),
-    PgColumn(name='__m_size', dtype='int', bq_dtype='INT64', proto_dtype='int32'),
-    PgColumn(name='__m_wal_end', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
-    PgColumn(name='__tx_lsn', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
-    PgColumn(name='__tx_commit_ts', dtype='timestamp with time zone', bq_dtype='TIMESTAMP', proto_dtype='int64'),
-    PgColumn(name='__tx_id', dtype='int', bq_dtype='INT64', proto_dtype='int32'),
+    PgColumn(pk=False, name='__m_op', dtype='varchar', bq_dtype='STRING', proto_dtype='string'),
+    PgColumn(pk=False, name='__m_ord', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
+    PgColumn(pk=False, name='__m_lsn', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
+    PgColumn(pk=False, name='__m_send_ts', dtype='timestamp with time zone', bq_dtype='TIMESTAMP', proto_dtype='int64'),
+    PgColumn(pk=False, name='__m_size', dtype='int', bq_dtype='INT64', proto_dtype='int32'),
+    PgColumn(pk=False, name='__m_wal_end', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
+    PgColumn(pk=False, name='__tx_lsn', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
+    PgColumn(pk=False, name='__tx_commit_ts', dtype='timestamp with time zone', bq_dtype='TIMESTAMP', proto_dtype='int64'),
+    PgColumn(pk=False, name='__tx_id', dtype='int', bq_dtype='INT64', proto_dtype='int32'),
     # PgColumn(name='__tb', dtype='json', bq_dtype='JSON', proto_dtype='string'),
 ]
 META_MAP_PG_COLUMNS = {column.name: column.dtype for column in META_PG_COLUMNS}

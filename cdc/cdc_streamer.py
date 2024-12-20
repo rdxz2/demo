@@ -218,6 +218,7 @@ class LogicalReplicationStreamer:
                 'proto_filename': decoded_msg.table.proto_filename,
                 'columns': [
                     {
+                        'pk': column.pk,
                         'name': column.name,
                         'dtype': column.dtype,
                         'bq_dtype': column.bq_dtype,
