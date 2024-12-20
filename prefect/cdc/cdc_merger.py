@@ -27,7 +27,8 @@ META_DB_PASS = os.environ['META_DB_PASS']
 META_DB_NAME = os.environ['META_DB_NAME']
 
 BQ_PROJECT_ID = os.environ['BQ_PROJECT_ID']
-BQ_LOG_TABLE_PREFIX = os.environ['BQ_LOG_TABLE_PREFIX']
+BQ_DATASET_LOCATION = os.environ['BQ_DATASET_LOCATION']
+BQ_LOG_DATASET_PREFIX = os.environ['BQ_LOG_DATASET_PREFIX']
 
 MERGER_THREADS = int(os.environ['MERGER_THREADS'])
 
@@ -51,6 +52,8 @@ class Merger:
 
         self.meta_conn, self.meta_cursor = get_meta_connection()
 
+        self.logger = get_run_logger()
+
         dsn = psycopg2.extensions.make_dsn(
             host=os.environ[f'{db.upper()}_DB_HOST'],
             port=int(os.environ[f'{db.upper()}_DB_PORT']),
@@ -64,10 +67,18 @@ class Merger:
 
         self.bq_client = bigquery.Client.from_service_account_json(SA_FILENAME)
 
+        # Create dataset if not exists
+        dataset_fqn = f'{BQ_PROJECT_ID}.{db}'
+        try:
+            self.bq_client.get_dataset(dataset_fqn)
+        except NotFound:
+            dataset = bigquery.Dataset(dataset_fqn)
+            dataset.location = BQ_DATASET_LOCATION
+            self.bq_client.create_dataset(dataset_fqn)
+            self.logger.info(f'Created dataset: {dataset_fqn}')
+
         self.q_update_last_cutoff_ts = Queue()
         self.q_stop_event = threading.Event()
-
-        self.logger = get_run_logger()
 
     def run(self):
         # <<----- START: Apply migrations
@@ -142,7 +153,7 @@ class Merger:
         cluster_cols: list[str],
         last_cutoff_ts: datetime
     ):
-        bq_table_log_fqn = f'{BQ_PROJECT_ID}.{BQ_LOG_TABLE_PREFIX}{database}.{schema}__{table}'
+        bq_table_log_fqn = f'{BQ_PROJECT_ID}.{BQ_LOG_DATASET_PREFIX}{database}.{schema}__{table}'
         bq_table_main_fqn = f'{BQ_PROJECT_ID}.{database}.{schema}__{table}'
         self.logger.debug(f'{bq_table_main_fqn}: merging...')
 
