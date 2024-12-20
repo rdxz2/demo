@@ -142,16 +142,16 @@ def all_dtype():
         raise
 
 
-def gen100():
+def gen10():
     """
     Generate 100 tables and insert data into them
     """
 
     conn, cursor = connect()
-    logger.info(f'{gen100.__name__} started')
+    logger.info(f'{gen10.__name__} started')
 
     try:
-        for i in range(100):
+        for i in range(10):
             cursor.execute(
                 f'''
                 CREATE TABLE IF NOT EXISTS gen_{i} (
@@ -178,12 +178,12 @@ def gen100():
                     ),
                 )
                 conn.commit()
-            logger.debug(f'{gen100.__name__} inserted')
+            logger.debug(f'{gen10.__name__} inserted')
             time.sleep(randomize_sleep_time())
-        logger.warning(f'{gen100.__name__} gracefully stopping')
+        logger.warning(f'{gen10.__name__} gracefully stopping')
     except Exception as e:
         stop_event.set()
-        logger.error(f'{gen100.__name__} stopping for error --> {e}\t{traceback.format_exc()}')
+        logger.error(f'{gen10.__name__} stopping for error --> {e}\t{traceback.format_exc()}')
         raise
 
 
@@ -379,7 +379,7 @@ if __name__ == '__main__':
     logger.info('Start producing...')
     functions = [
         all_dtype,
-        gen100,
+        gen10,
         truncate,
         delete,
         update,
