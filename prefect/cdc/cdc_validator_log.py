@@ -21,7 +21,7 @@ STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S = int(os.environ['STREAM_FILEWRITER
 STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S = int(os.environ['STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S'])
 
 BQ_PROJECT_ID = os.environ['BQ_PROJECT_ID']
-BQ_LOG_TABLE_PREFIX = os.environ['BQ_LOG_TABLE_PREFIX']
+BQ_LOG_DATASET_PREFIX = os.environ['BQ_LOG_DATASET_PREFIX']
 
 if __name__ == '__main__':
     client = bigquery.Client.from_service_account_json(os.path.join(os.path.pardir, SA_FILENAME))
@@ -80,13 +80,13 @@ if __name__ == '__main__':
             f'''
                 WITH t1 AS (  -- Get the latest truncate operation
                     SELECT COALESCE(MAX(__tx_commit_ts), TIMESTAMP_MILLIS(0)) AS max__tx_commit_ts
-                    FROM `{BQ_PROJECT_ID}.{BQ_LOG_TABLE_PREFIX}{REPL_DB_NAME}.{table_schema}__{table_name}`
+                    FROM `{BQ_PROJECT_ID}.{BQ_LOG_DATASET_PREFIX}{REPL_DB_NAME}.{table_schema}__{table_name}`
                     WHERE __tx_commit_ts <= TIMESTAMP_MICROS({ms})
                         AND __m_op = 'T'
                 )
                 , t2 AS (
                     SELECT id
-                    FROM `{BQ_PROJECT_ID}.{BQ_LOG_TABLE_PREFIX}{REPL_DB_NAME}.{table_schema}__{table_name}`
+                    FROM `{BQ_PROJECT_ID}.{BQ_LOG_DATASET_PREFIX}{REPL_DB_NAME}.{table_schema}__{table_name}`
                     WHERE __tx_commit_ts > (SELECT max__tx_commit_ts FROM t1)  -- Ignore all data before the latest truncate operation
                         AND __tx_commit_ts <= TIMESTAMP_MICROS({ms})
                     QUALIFY ROW_NUMBER() OVER(PARTITION BY id ORDER BY __tx_commit_ts DESC) = 1
