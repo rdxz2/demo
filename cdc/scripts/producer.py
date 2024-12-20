@@ -142,16 +142,16 @@ def all_dtype():
         raise
 
 
-def gen10():
+def genX(x=10):
     """
     Generate 100 tables and insert data into them
     """
 
     conn, cursor = connect()
-    logger.info(f'{gen10.__name__} started')
+    logger.info(f'{genX.__name__} started')
 
     try:
-        for i in range(10):
+        for i in range(x):
             cursor.execute(
                 f'''
                 CREATE TABLE IF NOT EXISTS gen_{i} (
@@ -166,7 +166,7 @@ def gen10():
             conn.commit()
 
         while not stop_event.is_set():
-            ranges = [x for x in range(100)]
+            ranges = [x for x in range(x)]
             random.shuffle(ranges)
             for i in ranges:
                 cursor.execute(
@@ -178,12 +178,12 @@ def gen10():
                     ),
                 )
                 conn.commit()
-            logger.debug(f'{gen10.__name__} inserted')
+            logger.debug(f'{genX.__name__} inserted')
             time.sleep(randomize_sleep_time())
-        logger.warning(f'{gen10.__name__} gracefully stopping')
+        logger.warning(f'{genX.__name__} gracefully stopping')
     except Exception as e:
         stop_event.set()
-        logger.error(f'{gen10.__name__} stopping for error --> {e}\t{traceback.format_exc()}')
+        logger.error(f'{genX.__name__} stopping for error --> {e}\t{traceback.format_exc()}')
         raise
 
 
@@ -379,7 +379,7 @@ if __name__ == '__main__':
     logger.info('Start producing...')
     functions = [
         all_dtype,
-        gen10,
+        genX,
         truncate,
         delete,
         update,
