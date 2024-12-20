@@ -42,7 +42,7 @@ UPLOADER_NO_FILE_REPORT_INTERVAL_S = int(os.environ['UPLOADER_NO_FILE_REPORT_INT
 
 BQ_PROJECT_ID = os.environ['BQ_PROJECT_ID']
 BQ_DATASET_LOCATION = os.environ['BQ_DATASET_LOCATION']
-BQ_LOG_TABLE_PREFIX = os.environ['BQ_LOG_TABLE_PREFIX']
+BQ_LOG_DATASET_PREFIX = os.environ['BQ_LOG_DATASET_PREFIX']
 
 DISCORD_WEBHOOK_URL = os.environ['DISCORD_WEBHOOK_URL']
 
@@ -78,19 +78,20 @@ class Uploader:
     def __init__(self) -> None:
         self.bq_client = bigquery.Client.from_service_account_json(SA_FILENAME)
         self.write_client = bigquery_storage_v1.BigQueryWriteClient.from_service_account_json(SA_FILENAME)
-        self.dataset_id_log = f'{BQ_LOG_TABLE_PREFIX}{REPL_DB_NAME}'
+        self.dataset_id_log = f'{BQ_LOG_DATASET_PREFIX}{REPL_DB_NAME}'
         self.dataset_id_main = REPL_DB_NAME
         # self.append_rows_streams: dict[str, writer.AppendRowsStream] = {}
         logger.debug(f'Connected to BQ: {self.bq_client.project}')
 
         # Create dataset if not exists
+        dataset_fqn_log = f'{BQ_PROJECT_ID}.{self.dataset_id_log}'
         try:
-            self.bq_client.get_dataset(self.dataset_id_log)
+            self.bq_client.get_dataset(dataset_fqn_log)
         except NotFound:
-            dataset = bigquery.Dataset(self.dataset_id_log)
+            dataset = bigquery.Dataset(dataset_fqn_log)
             dataset.location = BQ_DATASET_LOCATION
-            self.bq_client.create_dataset(self.dataset_id_log)
-            logger.info(f'Created dataset: {self.dataset_id_log}')
+            self.bq_client.create_dataset(dataset_fqn_log)
+            logger.info(f'Created dataset: {dataset_fqn_log}')
 
         # Get existing table columns
         self.map__bq_table_fqn__bq_table: dict[str, BqTable] = {}  # { fqn: table}
@@ -149,9 +150,9 @@ class Uploader:
                         if map__column__dtype[key] in {'jsonb', 'json'}:
                             data[key] = json.dumps(data[key])
                         if map__column__dtype[key] in {'timestamp with time zone'}:
-                            data[key] = int(datetime.fromisoformat(data[key]).timestamp() * 1000000)  # Convert to microseconds
+                            data[key] = None if data[key] is None else int(datetime.fromisoformat(data[key]).timestamp() * 1000000)  # Convert to microseconds
                         elif map__column__dtype[key] in {'timestamp without time zone'}:
-                            data[key] = datetime.fromisoformat(data[key]).strftime('%Y-%m-%d %H:%M:%S')  # Convert to string
+                            data[key] = None if data[key] is None else datetime.fromisoformat(data[key]).strftime('%Y-%m-%d %H:%M:%S')  # Convert to string
                     yield data
 
     def write(self, filenames, bq_table_log_fqn: str, pg_table: PgTable, pb2_class):
@@ -354,6 +355,7 @@ if __name__ == '__main__':
                     future.result()
                 except Exception as e:
                     t = traceback.format_exc()
+                    logger.error(f'Error processing table: {pg_table_fqn}, files: {filenames}\nTraceback:\n{t}')
                     send_message(f'_cdc_uploader [{REPL_DB_NAME}]_ error: **{e}**\nTable: **{pg_table_fqn}**\nFiles:\n```{filenames}```Traceback:\n```{t}```')
                     raise e
 
