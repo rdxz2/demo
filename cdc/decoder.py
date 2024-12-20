@@ -75,11 +75,8 @@ def convert_bytes_to_utf8(input_bytes: bytes) -> str: return input_bytes.decode(
 
 
 def convert_tuple_data_to_py_data(table: PgTable, tuple_data: TupleData, is_pk_only: bool = False) -> dict:
-    if not is_pk_only:
-        return {column.name: MAP__PG_DTYPE__PY_DTYPE.get(column.dtype, str)(datum.value) for column, datum in zip(table.columns, tuple_data.data)}
-    else:
-        table_columns = [column for column in table.columns if column.pk]
-        return {column.name: MAP__PG_DTYPE__PY_DTYPE.get(column.dtype, str)(datum.value) for column, datum in zip(table_columns, tuple_data.data) if column.pk}
+    table_columns = table.columns if not is_pk_only else [column for column in table.columns if column.pk]
+    return {column.name: MAP__PG_DTYPE__PY_DTYPE.get(column.dtype, str)(datum.value) if datum.value is not None else None for column, datum in zip(table_columns, tuple_data.data)}
 
 
 def json_serializer(obj):
@@ -333,10 +330,8 @@ class Decoder:
         existing_column_names = {column.name for column in self.map__relation_oid__table[relation.oid].columns}
         new_column_names = {column.name for column in relation.columns if column.name not in existing_column_names}
         if new_column_names:
-            # ordinal_position = 0
             for relation_column in relation.columns:  # Iterate the full column list
-                # ordinal_position += 1
-                if relation_column in map__relation_column__column:
+                if relation_column.name in map__relation_column__column:
                     continue
 
                 # Specify data type
