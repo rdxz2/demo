@@ -160,13 +160,20 @@ docker compose up --build
 ## Building docker image
 
 ```sh
-docker build -t xz2-demo-cdc-streamer:v0.0.1 Dockerfile.streamer
-docker build -t xz2-demo-cdc-uploader:v0.0.1 Dockerfile.uploader
+# Streamer
+docker build -t xz2-demo-cdc-streamer:v0.0.1 -f Dockerfile.streamer .
+
+# Uploader
+docker build -t xz2-demo-cdc-uploader:v0.0.1 -f Dockerfile.uploader .
+
+# [SIMULATION ONLY] Producer
+docker build -t xz2-demo-cdc-producer:v0.0.1 -f Dockerfile.producer .
 ```
 
-# Running merger script
+## Running docker image
 
 ```sh
-conda activate xz2democdc312
-python cdc_merger.py
+docker run -d --name __NAME__ -v __DOTENV_FILENAME__:/app/.env -v __LOGS_DIR__:/app/logs -v __OUTPUT_DIR__:/app/output -v __SA_FILENAME__:/app/sa.json --network host xz2-demo-cdc-streamer:v0.0.1
+docker run -d --name __NAME__ -v __DOTENV_FILENAME__:/app/.env -v __LOGS_DIR__:/app/logs -v __OUTPUT_DIR__:/app/output -v __SA_FILENAME__:/app/sa.json --network host xz2-demo-cdc-uploader:v0.0.1
+docker run -d --name __NAME__ -v __DOTENV_FILENAME__:/app/.env --network host xz2-demo-cdc-producer:v0.0.1
 ```
