@@ -10,7 +10,6 @@ import sys
 import threading
 import time
 import traceback
-import uuid
 
 from datetime import datetime, timedelta, timezone
 from loguru import logger
@@ -20,6 +19,7 @@ from threading import Thread
 from alert import send_message
 from data import FileDescriptor, ReplicationMessage, TransactionEvent
 from decoder import Decoder, json_serializer
+from utill.my_string import generate_random_string
 
 dotenv.load_dotenv()
 
@@ -59,7 +59,7 @@ class LogicalReplicationStreamer:
     This process as another subprocess `file_writer()` to consume the decoded messages and write it into files.
     """
 
-    def __init__(self, host: str, port: str, user: str, password: str, database: str, application_name: str = f'cdc-streamer-{REPL_DB_NAME}-{uuid.uuid4()}', **kwargs) -> None:
+    def __init__(self, host: str, port: str, user: str, password: str, database: str, application_name: str = f'cdc-streamer-{REPL_DB_NAME}-{generate_random_string()}', **kwargs) -> None:
         self.dsn = psycopg2.extensions.make_dsn(host=host, port=port, user=user, password=password, database=database, application_name=application_name, **kwargs)
 
         self.decoder = Decoder(self.dsn)
