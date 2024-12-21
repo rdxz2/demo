@@ -15,6 +15,7 @@ ALTER SYSTEM SET wal_level = logical;
 SHOW wal_level;
 
 CREATE USER repl WITH PASSWORD '12321' LOGIN REPLICATION;
+CREATE USER repl_readonly WITH PASSWORD '12321' LOGIN;
 ```
 
 ```sh
@@ -23,11 +24,11 @@ docker restart pg
 
 ```sql
 CREATE DATABASE stream;
-GRANT SELECT ON ALL TABLES IN SCHEMA public to repl;
 \c stream
 CREATE PUBLICATION "stream" FOR ALL TABLES;
-GRANT USAGE ON SCHEMA public TO repl;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO repl;
+GRANT USAGE ON SCHEMA public TO repl_readonly;
+GRANT SELECT ON ALL TABLES IN SCHEMA public to repl_readonly;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO repl_readonly;
 
 -- Replication slot will be automatically created by the streamer
 ```
