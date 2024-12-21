@@ -90,7 +90,7 @@ class Uploader:
         except NotFound:
             dataset = bigquery.Dataset(dataset_fqn_log)
             dataset.location = BQ_DATASET_LOCATION
-            self.bq_client.create_dataset(dataset_fqn_log)
+            self.bq_client.create_dataset(dataset)
             logger.info(f'Created dataset: {dataset_fqn_log}')
 
         # Get existing table columns

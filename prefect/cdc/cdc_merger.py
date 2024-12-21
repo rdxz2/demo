@@ -74,7 +74,7 @@ class Merger:
         except NotFound:
             dataset = bigquery.Dataset(dataset_fqn)
             dataset.location = BQ_DATASET_LOCATION
-            self.bq_client.create_dataset(dataset_fqn)
+            self.bq_client.create_dataset(dataset)
             self.logger.info(f'Created dataset: {dataset_fqn}')
 
         self.q_update_last_cutoff_ts = Queue()
