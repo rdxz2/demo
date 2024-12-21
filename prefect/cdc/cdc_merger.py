@@ -14,7 +14,6 @@ from google.cloud import bigquery
 from prefect import flow, task
 from prefect.logging import get_run_logger
 from queue import Queue, Empty
-from threading import Thread
 
 dotenv.load_dotenv()
 
@@ -122,15 +121,15 @@ class Merger:
                 FROM pg_index i
                 JOIN pg_attribute a ON a.attrelid = i.indrelid
                     AND a.attnum = ANY(i.indkey)
-                WHERE i.indrelid = %s::regclass
-                    AND i.indisprimary
+                WHERE i.indisprimary
+                    AND i.indrelid = %s::regclass
                 ORDER BY a.attnum
                 ''',
                 (f'{schema}.{table}',)
             )
             self.map_pk[f'{schema}.{table}'] = [x[0] for x in self.repl_cursor.fetchall()]
 
-        thread_last_cutoff_ts_updator = Thread(target=self.update_last_cutoff_ts, daemon=True)
+        thread_last_cutoff_ts_updator = threading.Thread(target=self.update_last_cutoff_ts, daemon=True)
         thread_last_cutoff_ts_updator.start()
 
         # Execute
@@ -186,6 +185,8 @@ class Merger:
             self.logger.info(f'{bq_table_main_fqn}: new columns added: {new_columns}')
 
         # END: Detect schema changes ----->>
+
+        # Handle partition tables
 
         # Merge
         last_cutoff_ts_us = int(last_cutoff_ts.timestamp() * 1000000)  # Microseconds

@@ -14,12 +14,11 @@ import traceback
 from datetime import datetime, timedelta, timezone
 from loguru import logger
 from queue import Queue
-from threading import Thread
+from utill.my_string import generate_random_string
 
 from alert import send_message
 from data import FileDescriptor, ReplicationMessage, TransactionEvent
 from decoder import Decoder, json_serializer
-from utill.my_string import generate_random_string
 
 dotenv.load_dotenv()
 
@@ -87,9 +86,9 @@ class LogicalReplicationStreamer:
         # send_message(f'_cdc_streamer [{REPL_DB_NAME}]_ started')
 
     def run(self) -> None:
-        thread_streamer = Thread(target=self.streamer, daemon=True)  # Spawn thread to start streaming from replication slot
-        thread_consumer = Thread(target=self.consumer, daemon=True)  # Spawn thread to consume the streamed logical replication message
-        thread_monitor = Thread(target=self.monitor, daemon=True)  # Spawn thread to monitor the streamer
+        thread_streamer = threading.Thread(target=self.streamer, daemon=True)  # Spawn thread to start streaming from replication slot
+        thread_consumer = threading.Thread(target=self.consumer, daemon=True)  # Spawn thread to consume the streamed logical replication message
+        thread_monitor = threading.Thread(target=self.monitor, daemon=True)  # Spawn thread to monitor the streamer
 
         thread_streamer.start()
         thread_consumer.start()
