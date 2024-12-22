@@ -50,11 +50,11 @@ class Merger:
         self.logger = get_run_logger()
 
         db_user, db_pass, db_host, db_port, db_name = (
-            os.environ[f'{db.upper()}_DB_USER'],
-            os.environ[f'{db.upper()}_DB_PASS'],
-            os.environ[f'{db.upper()}_DB_HOST'],
-            int(os.environ[f'{db.upper()}_DB_PORT']),
-            os.environ[f'{db.upper()}_DB_NAME'],
+            os.environ[f'__{self.db}_DB_USER'],
+            os.environ[f'__{self.db}_DB_PASS'],
+            os.environ[f'__{self.db}_DB_HOST'],
+            int(os.environ[f'__{self.db}_DB_PORT']),
+            os.environ[f'__{self.db}_DB_NAME'],
         )
         self.repl_conn = psycopg.connect(f'postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}?application_name={APPLICATION_NAME}')
         self.repl_cursor = self.repl_conn.cursor()
