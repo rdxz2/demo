@@ -81,7 +81,7 @@ class Uploader:
         self.dataset_id_log = f'{BQ_LOG_DATASET_PREFIX}{CDC_DB_NAME}'
         self.dataset_id_main = CDC_DB_NAME
         # self.append_rows_streams: dict[str, writer.AppendRowsStream] = {}
-        logger.debug(f'Connected to BQ: {self.bq_client.project}')
+        logger.debug(f'Connected to BQ: {self.bq_client.project}, Target dataset: {self.dataset_id_log}')
 
         # Create dataset if not exists
         dataset_fqn_log = f'{BQ_PROJECT_ID}.{self.dataset_id_log}'
