@@ -111,7 +111,7 @@ class Uploader:
         logger.debug('Fetched existing tables')
 
         # # Send starting message
-        # send_message(f'_cdc_uploader [{REPL_DB_NAME}]_ started')
+        # send_message(f'_CDC Uploader [{REPL_DB_NAME}]_ started')
 
     def generate_and_compile_proto(self, table: PgTable):
         proto_filename = os.path.join(PROTO_OUTPUT_DIR, f'{table.proto_filename}.proto')
@@ -356,7 +356,7 @@ if __name__ == '__main__':
                 except Exception as e:
                     t = traceback.format_exc()
                     logger.error(f'Error processing table: {pg_table_fqn}, files: {filenames}\nTraceback:\n{t}')
-                    send_message(f'_cdc_uploader [{REPL_DB_NAME}]_ error: **{e}**\nTable: **{pg_table_fqn}**\nFiles:\n```{filenames}```Traceback:\n```{t}```')
+                    send_message(f'_CDC Uploader [{REPL_DB_NAME}]_ error: **{e}**\nTable: **{pg_table_fqn}**\nFiles:\n```{filenames}```Traceback:\n```{t}```')
                     raise e
 
             latest_file_ts = datetime.now(tz=timezone.utc)

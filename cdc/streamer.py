@@ -83,7 +83,7 @@ class LogicalReplicationStreamer:
         logger.debug(f'Connected to db: {REPL_DB_NAME} (Replication)')
 
         # # Send starting message
-        # send_message(f'_cdc_streamer [{REPL_DB_NAME}]_ started')
+        # send_message(f'_CDC Streamer [{REPL_DB_NAME}]_ started')
 
     def run(self) -> None:
         thread_streamer = threading.Thread(target=self.streamer, daemon=True)  # Spawn thread to start streaming from replication slot
@@ -125,7 +125,7 @@ class LogicalReplicationStreamer:
             self.cursor.consume_stream(self.put_message_to_queue)
         except Exception as e:
             t = traceback.format_exc()
-            send_message(f'_cdc_streamer [{REPL_DB_NAME}]_ streamer error: **{type(e)}: {e}**\n```{t}```')
+            send_message(f'_CDC Streamer [{REPL_DB_NAME}]_ streamer error: **{type(e)}: {e}**\n```{t}```')
             logger.error(f'Error in streamer thread: {e}\n{t}')
             self.exception_event.set()
             raise e
@@ -185,7 +185,7 @@ class LogicalReplicationStreamer:
 
         except Exception as e:
             t = traceback.format_exc()
-            send_message(f'_cdc_streamer [{REPL_DB_NAME}]_ consumer error: **{type(e)}: {e}**\n```{t}```')
+            send_message(f'_CDC Streamer [{REPL_DB_NAME}]_ consumer error: **{type(e)}: {e}**\n```{t}```')
             logger.error(f'Error in consumer thread: {e}\n{t}')
             self.exception_event.set()
         finally:
@@ -289,7 +289,7 @@ class LogicalReplicationStreamer:
                 time.sleep(1)
         except Exception as e:
             t = traceback.format_exc()
-            send_message(f'_cdc_streamer [{REPL_DB_NAME}]_ monitor error: **{type(e)}: {e}**\n```{t}```')
+            send_message(f'_CDC Streamer [{REPL_DB_NAME}]_ monitor error: **{type(e)}: {e}**\n```{t}```')
             logger.error(f'Error in monitor thread: {e}\n{t}')
             self.exception_event.set()
             raise e
