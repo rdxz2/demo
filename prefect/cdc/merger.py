@@ -10,7 +10,7 @@ from google.cloud import bigquery
 from prefect import flow, task
 from prefect.logging import get_run_logger
 from queue import Queue, Empty
-from utill.my_string import generate_random_string
+from utill.my_string import generate_random_string, replace_nonnumeric
 
 dotenv.load_dotenv()
 
@@ -41,7 +41,7 @@ def get_meta_connection():
 
 class Merger:
     def __init__(self, db: str, cutoff_ts: datetime):
-        self.db = db
+        self.db = replace_nonnumeric(db.upper(), '_')
         self.cutoff_ts = cutoff_ts
         self.cutoff_ts_us = int(self.cutoff_ts.timestamp() * 1000000)  # Microseconds
 
@@ -49,7 +49,14 @@ class Merger:
 
         self.logger = get_run_logger()
 
-        self.repl_conn = psycopg.connect(f'postgresql://{os.environ[f"{db.upper()}_DB_USER"]}:{os.environ[f"{db.upper()}_DB_PASS"]}@{os.environ[f"{db.upper()}_DB_HOST"]}:{int(os.environ[f"{db.upper()}_DB_PORT"])}/{os.environ[f"{db.upper()}_DB_NAME"]}?application_name={APPLICATION_NAME}')
+        db_user, db_pass, db_host, db_port, db_name = (
+            os.environ[f'{db.upper()}_DB_USER'],
+            os.environ[f'{db.upper()}_DB_PASS'],
+            os.environ[f'{db.upper()}_DB_HOST'],
+            int(os.environ[f'{db.upper()}_DB_PORT']),
+            os.environ[f'{db.upper()}_DB_NAME'],
+        )
+        self.repl_conn = psycopg.connect(f'postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}?application_name={APPLICATION_NAME}')
         self.repl_cursor = self.repl_conn.cursor()
 
         self.bq_client = bigquery.Client.from_service_account_json(SA_FILENAME)
