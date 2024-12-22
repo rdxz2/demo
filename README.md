@@ -15,26 +15,32 @@ docker run \
 # Handful scripts
 
 ```sh
+# Build CDC services
+cd cdc
+docker build -t xz2-demo-cdc-streamer:v0.0.1 --secret id=ssh_key,src=/home/ubuntu/.ssh/access-key-bitbucket -f Dockerfile.streamer .
+docker build -t xz2-demo-cdc-uploader:v0.0.1 --secret id=ssh_key,src=/home/ubuntu/.ssh/access-key-bitbucket -f Dockerfile.uploader .
+docker build -t xz2-demo-cdc-producer:v0.0.1 --secret id=ssh_key,src=/home/ubuntu/.ssh/access-key-bitbucket -f Dockerfile.producer .
+
 # Run CDC services (stream database)
 cd cdc
-docker run -d --name cdc-streamer-stream -v ./.env.stream:/app/.env -v ./dockerlogs:/app/logs -v ./output:/app/output -v ./sa.json:/app/sa.json --network host xz2-demo-cdc-streamer:v0.0.1 && docker logs -f cdc-streamer-stream
-docker run -d --name cdc-uploader-stream -v ./.env.stream:/app/.env -v ./dockerlogs:/app/logs -v ./output:/app/output -v ./sa.json:/app/sa.json --network host xz2-demo-cdc-uploader:v0.0.1 && docker logs -f cdc-uploader-stream
-docker run -d --name cdc-producer-stream -v ./.env.stream:/app/.env --network host xz2-demo-cdc-producer:v0.0.1 && docker logs -f cdc-producer-stream
+docker rm -f cdc-streamer-stream && docker run --name cdc-streamer-stream -v ./.env.stream:/app/.env -v ./dockerlogs:/app/logs -v ./output:/app/output -v ./sa.json:/app/sa.json --network host xz2-demo-cdc-streamer:v0.0.1
+docker rm -f cdc-uploader-stream && docker run --name cdc-uploader-stream -v ./.env.stream:/app/.env -v ./dockerlogs:/app/logs -v ./output:/app/output -v ./sa.json:/app/sa.json --network host xz2-demo-cdc-uploader:v0.0.1
+docker rm -f cdc-producer-stream && docker run --name cdc-producer-stream -v ./.env.stream:/app/.env --network host xz2-demo-cdc-producer:v0.0.1
 
 # Run CDC services (metabase database)
 cd cdc
-docker run -d --name cdc-streamer-metabase -v ./.env.metabase:/app/.env -v ./dockerlogs:/app/logs -v ./output:/app/output -v ./sa.json:/app/sa.json --network host xz2-demo-cdc-streamer:v0.0.1 && docker logs -f cdc-streamer-metabase
-docker run -d --name cdc-uploader-metabase -v ./.env.metabase:/app/.env -v ./dockerlogs:/app/logs -v ./output:/app/output -v ./sa.json:/app/sa.json --network host xz2-demo-cdc-uploader:v0.0.1 && docker logs -f cdc-uploader-metabase
+docker rm -f cdc-streamer-metabase && docker run --name cdc-streamer-metabase -v ./.env.metabase:/app/.env -v ./dockerlogs:/app/logs -v ./output:/app/output -v ./sa.json:/app/sa.json --network host xz2-demo-cdc-streamer:v0.0.1
+docker rm -f cdc-uploader-metabase && docker run --name cdc-uploader-metabase -v ./.env.metabase:/app/.env -v ./dockerlogs:/app/logs -v ./output:/app/output -v ./sa.json:/app/sa.json --network host xz2-demo-cdc-uploader:v0.0.1
 
-# Stop CDC services
+# Stop all CDC services
 docker ps --filter name=cdc-* -q | xargs docker stop
 
-# Start CDC service (created previously)
-docker start cdc-streamer-stream
-docker start cdc-uploader-stream
-docker start cdc-producer-stream
-docker start cdc-streamer-metabase
-docker start cdc-uploader-metabase
+# Start CDC service (previously created)
+docker start -a cdc-streamer-stream
+docker start -a cdc-uploader-stream
+docker start -a cdc-producer-stream
+docker start -a cdc-streamer-metabase
+docker start -a cdc-uploader-metabase
 
 # Run metabase
 cd metabase
