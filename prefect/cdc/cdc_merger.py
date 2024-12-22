@@ -1,11 +1,7 @@
 import dotenv
-import glob
 import os
-import psycopg2
-import psycopg2.extensions
-import psycopg2.extras
+import psycopg
 import threading
-import uuid
 
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -14,6 +10,7 @@ from google.cloud import bigquery
 from prefect import flow, task
 from prefect.logging import get_run_logger
 from queue import Queue, Empty
+from utill.my_string import generate_random_string
 
 dotenv.load_dotenv()
 
@@ -33,12 +30,11 @@ MERGER_THREADS = int(os.environ['MERGER_THREADS'])
 
 MIGRATION_TABLE = 'public.migration'
 
-APPLICATION_NAME = f'cdc-merger-{META_DB_NAME}-{uuid.uuid1()}'
+APPLICATION_NAME = f'cdc-merger-{META_DB_NAME}-{generate_random_string()}'
 
 
 def get_meta_connection():
-    dsn = psycopg2.extensions.make_dsn(host=META_DB_HOST, port=META_DB_PORT, user=META_DB_USER, password=META_DB_PASS, database=META_DB_NAME, application_name=APPLICATION_NAME)
-    conn = psycopg2.connect(dsn)
+    conn = psycopg.connect(f'postgresql://{META_DB_USER}:{META_DB_PASS}@{META_DB_HOST}:{META_DB_PORT}/{META_DB_NAME}?application_name={APPLICATION_NAME}')
     cursor = conn.cursor()
     return conn, cursor
 
@@ -53,15 +49,7 @@ class Merger:
 
         self.logger = get_run_logger()
 
-        dsn = psycopg2.extensions.make_dsn(
-            host=os.environ[f'{db.upper()}_DB_HOST'],
-            port=int(os.environ[f'{db.upper()}_DB_PORT']),
-            user=os.environ[f'{db.upper()}_DB_USER'],
-            password=os.environ[f'{db.upper()}_DB_PASS'],
-            database=os.environ[f'{db.upper()}_DB_NAME'],
-            application_name=APPLICATION_NAME
-        )
-        self.repl_conn = psycopg2.connect(dsn)
+        self.repl_conn = psycopg.connect(f'postgresql://{os.environ[f"{db.upper()}_DB_USER"]}:{os.environ[f"{db.upper()}_DB_PASS"]}@{os.environ[f"{db.upper()}_DB_HOST"]}:{int(os.environ[f"{db.upper()}_DB_PORT"])}/{os.environ[f"{db.upper()}_DB_NAME"]}?application_name={APPLICATION_NAME}')
         self.repl_cursor = self.repl_conn.cursor()
 
         self.bq_client = bigquery.Client.from_service_account_json(SA_FILENAME)
@@ -80,10 +68,6 @@ class Merger:
         self.q_stop_event = threading.Event()
 
     def run(self):
-        # <<----- START: Apply migrations
-
-        # END: Apply migrations ----->>
-
         # Get all merger tables
         self.meta_cursor.execute('SELECT "database", "schema", "table", "partition_col", "cluster_cols", "last_cutoff_ts" FROM public.merger WHERE "database" = %s AND "is_active"', (self.db, ))
         tables = self.meta_cursor.fetchall()
