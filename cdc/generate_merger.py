@@ -8,16 +8,16 @@ from utill.my_string import generate_random_string
 
 dotenv.load_dotenv(os.path.join(os.path.pardir, '.env.metabase_readonly'))
 
-REPL_DB_HOST = os.environ['REPL_DB_HOST']
-REPL_DB_PORT = os.environ['REPL_DB_PORT']
-REPL_DB_USER = os.environ['REPL_DB_USER']
-REPL_DB_PASS = os.environ['REPL_DB_PASS']
-REPL_DB_NAME = os.environ['REPL_DB_NAME']
+CDC_DB_HOST = os.environ['CDC_DB_HOST']
+CDC_DB_PORT = os.environ['CDC_DB_PORT']
+CDC_DB_USER = os.environ['CDC_DB_USER']
+CDC_DB_PASS = os.environ['CDC_DB_PASS']
+CDC_DB_NAME = os.environ['CDC_DB_NAME']
 
-APPLICATION_NAME = f'cdc-generate-merger-{REPL_DB_NAME}-{generate_random_string()}'
+APPLICATION_NAME = f'cdc-generate-merger-{CDC_DB_NAME}-{generate_random_string()}'
 
 if __name__ == '__main__':
-    dsn = psycopg2.extensions.make_dsn(host=REPL_DB_HOST, port=REPL_DB_PORT, user=REPL_DB_USER, password=REPL_DB_PASS, database=REPL_DB_NAME, application_name=APPLICATION_NAME)
+    dsn = psycopg2.extensions.make_dsn(host=CDC_DB_HOST, port=CDC_DB_PORT, user=CDC_DB_USER, password=CDC_DB_PASS, database=CDC_DB_NAME, application_name=APPLICATION_NAME)
     conn = psycopg2.connect(dsn)
     cursor = conn.cursor()
 

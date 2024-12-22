@@ -29,11 +29,11 @@ if os.environ['DEBUG'] == '1':
 
 SA_FILENAME = os.environ['SA_FILENAME']
 
-REPL_DB_HOST = os.environ['REPL_DB_HOST']
-REPL_DB_PORT = int(os.environ['REPL_DB_PORT'])
-REPL_DB_USER = os.environ['REPL_DB_USER']
-REPL_DB_PASS = os.environ['REPL_DB_PASS']
-REPL_DB_NAME = os.environ['REPL_DB_NAME']
+CDC_DB_HOST = os.environ['CDC_DB_HOST']
+CDC_DB_PORT = int(os.environ['CDC_DB_PORT'])
+CDC_DB_USER = os.environ['CDC_DB_USER']
+CDC_DB_PASS = os.environ['CDC_DB_PASS']
+CDC_DB_NAME = os.environ['CDC_DB_NAME']
 
 PGTOBQ_OUTPUT_DIR = os.environ['PGTOBQ_OUTPUT_DIR']
 
@@ -48,7 +48,7 @@ STREAM_FILEWRITER_MAX_FILE_SIZE_B = int(os.environ['STREAM_FILEWRITER_MAX_FILE_S
 
 PGTOBQ_UPLOAD_QUEUE_MAX_SIZE = int(os.environ['PGTOBQ_UPLOAD_QUEUE_MAX_SIZE'])
 
-APPLICATION_NAME = f'cdc-pgtobq-{REPL_DB_NAME}-{generate_random_string()}'
+APPLICATION_NAME = f'cdc-pgtobq-{CDC_DB_NAME}-{generate_random_string()}'
 
 
 def download_pg_table(cursor: psycopg2.extensions.cursor, pg_table_fqn: str, pg_cols: list[str], output_filename: str):
@@ -144,7 +144,7 @@ def main(pg_table_fqn: str, force: bool):
     # now_ts = now.strftime('%Y-%m-%d %H:%M:%S.%f%Z')
     now_ts = int(now.timestamp() * 1000000)
     pg_table_schema, pg_table_name = pg_table_fqn.split('.')
-    bq_dataset_id = REPL_DB_NAME
+    bq_dataset_id = CDC_DB_NAME
     bq_dataset_fqn = f'{BQ_PROJECT_ID}.{bq_dataset_id}'
     bq_table_id = f'{pg_table_schema}__{pg_table_name}'
     bq_table_fqn = f'{BQ_PROJECT_ID}.{bq_dataset_id}.{bq_table_id}'
@@ -154,7 +154,7 @@ def main(pg_table_fqn: str, force: bool):
         os.makedirs(PGTOBQ_OUTPUT_DIR)
         logger.info(f'Create output dir: {PGTOBQ_OUTPUT_DIR}')
 
-    dsn = psycopg2.extensions.make_dsn(host=REPL_DB_HOST, port=REPL_DB_PORT, user=REPL_DB_USER, password=REPL_DB_PASS, database=REPL_DB_NAME, application_name=APPLICATION_NAME)
+    dsn = psycopg2.extensions.make_dsn(host=CDC_DB_HOST, port=CDC_DB_PORT, user=CDC_DB_USER, password=CDC_DB_PASS, database=CDC_DB_NAME, application_name=APPLICATION_NAME)
     conn = psycopg2.connect(dsn)
     cursor = conn.cursor()
 

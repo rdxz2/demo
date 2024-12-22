@@ -19,15 +19,15 @@ dotenv.load_dotenv()
 
 stop_event = threading.Event()
 
-REPL_DB_HOST = os.environ['REPL_DB_HOST']
-REPL_DB_PORT = int(os.environ['REPL_DB_PORT'])
-REPL_DB_USER = 'postgres'
-REPL_DB_PASS = '12321'
-REPL_DB_NAME = os.environ['REPL_DB_NAME']
+CDC_DB_HOST = os.environ['CDC_DB_HOST']
+CDC_DB_PORT = int(os.environ['CDC_DB_PORT'])
+CDC_DB_USER = 'postgres'
+CDC_DB_PASS = '12321'
+CDC_DB_NAME = os.environ['CDC_DB_NAME']
 
 
 def connect():
-    dsn = psycopg2.extensions.make_dsn(host=REPL_DB_HOST, port=REPL_DB_PORT, user=REPL_DB_USER, password=REPL_DB_PASS, database=REPL_DB_NAME, application_name=f'producer-{REPL_DB_NAME}-{uuid.uuid4()}')
+    dsn = psycopg2.extensions.make_dsn(host=CDC_DB_HOST, port=CDC_DB_PORT, user=CDC_DB_USER, password=CDC_DB_PASS, database=CDC_DB_NAME, application_name=f'producer-{CDC_DB_NAME}-{uuid.uuid4()}')
     conn = psycopg2.connect(dsn)
     cursor = conn.cursor()
     return conn, cursor

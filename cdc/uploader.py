@@ -28,13 +28,13 @@ if os.environ['DEBUG'] == '1':
 
 SA_FILENAME = os.environ['SA_FILENAME']
 
-REPL_DB_NAME = os.environ['REPL_DB_NAME']
+CDC_DB_NAME = os.environ['CDC_DB_NAME']
 
 LOG_DIR = os.environ['LOG_DIR']
 
-PROTO_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'proto')
+PROTO_OUTPUT_DIR = os.path.join('output', CDC_DB_NAME, 'proto')
 
-UPLOAD_OUTPUT_DIR = os.path.join('output', REPL_DB_NAME, 'upload')
+UPLOAD_OUTPUT_DIR = os.path.join('output', CDC_DB_NAME, 'upload')
 UPLOADER_THREADS = int(os.environ['UPLOADER_THREADS'])
 UPLOADER_FILE_POLL_INTERVAL_S = int(os.environ['UPLOADER_FILE_POLL_INTERVAL_S'])
 UPLOADER_STREAM_CHUNK_SIZE_B = int(os.environ['UPLOADER_STREAM_CHUNK_SIZE_B'])
@@ -78,8 +78,8 @@ class Uploader:
     def __init__(self) -> None:
         self.bq_client = bigquery.Client.from_service_account_json(SA_FILENAME)
         self.write_client = bigquery_storage_v1.BigQueryWriteClient.from_service_account_json(SA_FILENAME)
-        self.dataset_id_log = f'{BQ_LOG_DATASET_PREFIX}{REPL_DB_NAME}'
-        self.dataset_id_main = REPL_DB_NAME
+        self.dataset_id_log = f'{BQ_LOG_DATASET_PREFIX}{CDC_DB_NAME}'
+        self.dataset_id_main = CDC_DB_NAME
         # self.append_rows_streams: dict[str, writer.AppendRowsStream] = {}
         logger.debug(f'Connected to BQ: {self.bq_client.project}')
 
@@ -111,7 +111,7 @@ class Uploader:
         logger.debug('Fetched existing tables')
 
         # # Send starting message
-        # send_message(f'_CDC Uploader [{REPL_DB_NAME}]_ started')
+        # send_message(f'_CDC Uploader [{CDC_DB_NAME}]_ started')
 
     def generate_and_compile_proto(self, table: PgTable):
         proto_filename = os.path.join(PROTO_OUTPUT_DIR, f'{table.proto_filename}.proto')
@@ -119,7 +119,7 @@ class Uploader:
         # Generate proto file
         with open(proto_filename, 'w') as f:
             f.write(f'syntax = "proto3";\n\n')
-            f.write(f'package {REPL_DB_NAME};\n\n')
+            f.write(f'package {CDC_DB_NAME};\n\n')
             f.write(f'message {table.proto_classname} {{\n')
             for i, column in enumerate(META_PG_COLUMNS + table.columns):
                 # All columns are optional
@@ -356,7 +356,7 @@ if __name__ == '__main__':
                 except Exception as e:
                     t = traceback.format_exc()
                     logger.error(f'Error processing table: {pg_table_fqn}, files: {filenames}\nTraceback:\n{t}')
-                    send_message(f'_CDC Uploader [{REPL_DB_NAME}]_ error: **{e}**\nTable: **{pg_table_fqn}**\nFiles:\n```{filenames}```Traceback:\n```{t}```')
+                    send_message(f'_CDC Uploader [{CDC_DB_NAME}]_ error: **{e}**\nTable: **{pg_table_fqn}**\nFiles:\n```{filenames}```Traceback:\n```{t}```')
                     raise e
 
             latest_file_ts = datetime.now(tz=timezone.utc)

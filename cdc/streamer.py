@@ -25,13 +25,13 @@ dotenv.load_dotenv()
 if os.environ['DEBUG'] == '1':
     logging.basicConfig(level=logging.DEBUG)
 
-REPL_DB_HOST = os.environ['REPL_DB_HOST']
-REPL_DB_PORT = int(os.environ['REPL_DB_PORT'])
-REPL_DB_USER = os.environ['REPL_DB_USER']
-REPL_DB_PASS = os.environ['REPL_DB_PASS']
-REPL_DB_NAME = os.environ['REPL_DB_NAME']
-REPL_PUBL_NAME = os.environ['REPL_PUBL_NAME']
-REPL_SLOT_NAME = os.environ['REPL_SLOT_NAME']
+CDC_DB_HOST = os.environ['CDC_DB_HOST']
+CDC_DB_PORT = int(os.environ['CDC_DB_PORT'])
+CDC_DB_USER = os.environ['CDC_DB_USER']
+CDC_DB_PASS = os.environ['CDC_DB_PASS']
+CDC_DB_NAME = os.environ['CDC_DB_NAME']
+CDC_PUBL_NAME = os.environ['CDC_PUBL_NAME']
+CDC_SLOT_NAME = os.environ['CDC_SLOT_NAME']
 
 LOG_DIR = os.environ['LOG_DIR']
 
@@ -58,7 +58,7 @@ class LogicalReplicationStreamer:
     This process as another subprocess `file_writer()` to consume the decoded messages and write it into files.
     """
 
-    def __init__(self, host: str, port: str, user: str, password: str, database: str, application_name: str = f'cdc-streamer-{REPL_DB_NAME}-{generate_random_string()}', **kwargs) -> None:
+    def __init__(self, host: str, port: str, user: str, password: str, database: str, application_name: str = f'cdc-streamer-{CDC_DB_NAME}-{generate_random_string()}', **kwargs) -> None:
         self.dsn = psycopg2.extensions.make_dsn(host=host, port=port, user=user, password=password, database=database, application_name=application_name, **kwargs)
 
         self.decoder = Decoder(self.dsn)
@@ -80,10 +80,10 @@ class LogicalReplicationStreamer:
 
         self.conn = psycopg2.connect(self.dsn, connection_factory=psycopg2.extras.LogicalReplicationConnection)
         self.cursor = self.conn.cursor(cursor_factory=psycopg2.extras.ReplicationCursor)
-        logger.debug(f'Connected to db: {REPL_DB_NAME} (Replication)')
+        logger.debug(f'Connected to db: {CDC_DB_NAME} (Replication)')
 
         # # Send starting message
-        # send_message(f'_CDC Streamer [{REPL_DB_NAME}]_ started')
+        # send_message(f'_CDC Streamer [{CDC_DB_NAME}]_ started')
 
     def run(self) -> None:
         thread_streamer = threading.Thread(target=self.streamer, daemon=True)  # Spawn thread to start streaming from replication slot
@@ -113,19 +113,19 @@ class LogicalReplicationStreamer:
         logger.debug('Streamer thread started...')
         try:
             # Make sure replication slot exists
-            self.cursor.execute(f'SELECT COUNT(1) FROM pg_replication_slots WHERE slot_name = \'{REPL_SLOT_NAME}\'')
+            self.cursor.execute(f'SELECT COUNT(1) FROM pg_replication_slots WHERE slot_name = \'{CDC_SLOT_NAME}\'')
             if self.cursor.fetchone()[0] == 0:
-                self.cursor.create_replication_slot(REPL_SLOT_NAME, output_plugin='pgoutput')
-                logger.info(f'Replication slot created: {REPL_SLOT_NAME}')
-            self.cursor.start_replication(slot_name=REPL_SLOT_NAME, options={
+                self.cursor.create_replication_slot(CDC_SLOT_NAME, output_plugin='pgoutput')
+                logger.info(f'Replication slot created: {CDC_SLOT_NAME}')
+            self.cursor.start_replication(slot_name=CDC_SLOT_NAME, options={
                 'proto_version': '1',
-                'publication_names': REPL_PUBL_NAME,
+                'publication_names': CDC_PUBL_NAME,
             })
-            logger.debug(f'Replication started, publication name: \'{REPL_PUBL_NAME}\', replication slot name: \'{REPL_SLOT_NAME}\'')
+            logger.debug(f'Replication started, publication name: \'{CDC_PUBL_NAME}\', replication slot name: \'{CDC_SLOT_NAME}\'')
             self.cursor.consume_stream(self.put_message_to_queue)
         except Exception as e:
             t = traceback.format_exc()
-            send_message(f'_CDC Streamer [{REPL_DB_NAME}]_ streamer error: **{type(e)}: {e}**\n```{t}```')
+            send_message(f'_CDC Streamer [{CDC_DB_NAME}]_ streamer error: **{type(e)}: {e}**\n```{t}```')
             logger.error(f'Error in streamer thread: {e}\n{t}')
             self.exception_event.set()
             raise e
@@ -185,7 +185,7 @@ class LogicalReplicationStreamer:
 
         except Exception as e:
             t = traceback.format_exc()
-            send_message(f'_CDC Streamer [{REPL_DB_NAME}]_ consumer error: **{type(e)}: {e}**\n```{t}```')
+            send_message(f'_CDC Streamer [{CDC_DB_NAME}]_ consumer error: **{type(e)}: {e}**\n```{t}```')
             logger.error(f'Error in consumer thread: {e}\n{t}')
             self.exception_event.set()
         finally:
@@ -289,7 +289,7 @@ class LogicalReplicationStreamer:
                 time.sleep(1)
         except Exception as e:
             t = traceback.format_exc()
-            send_message(f'_CDC Streamer [{REPL_DB_NAME}]_ monitor error: **{type(e)}: {e}**\n```{t}```')
+            send_message(f'_CDC Streamer [{CDC_DB_NAME}]_ monitor error: **{type(e)}: {e}**\n```{t}```')
             logger.error(f'Error in monitor thread: {e}\n{t}')
             self.exception_event.set()
             raise e
@@ -299,7 +299,7 @@ class LogicalReplicationStreamer:
     def stop(self) -> None:
         self.cursor.close()
         self.conn.close()
-        logger.debug(f'Disconnected from db: {REPL_DB_NAME} (Replication)')
+        logger.debug(f'Disconnected from db: {CDC_DB_NAME} (Replication)')
 
 
 if __name__ == '__main__':
@@ -316,5 +316,5 @@ if __name__ == '__main__':
 
     # Run the streamer
     logger.info('Starting cdc streamer...')
-    streamer = LogicalReplicationStreamer(host=REPL_DB_HOST, port=REPL_DB_PORT, user=REPL_DB_USER, password=REPL_DB_PASS, database=REPL_DB_NAME)
+    streamer = LogicalReplicationStreamer(host=CDC_DB_HOST, port=CDC_DB_PORT, user=CDC_DB_USER, password=CDC_DB_PASS, database=CDC_DB_NAME)
     streamer.run()
