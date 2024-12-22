@@ -6,6 +6,7 @@ conda activate xz2demoprefect312
 pip install -r requirements.txt
 
 prefect config set PREFECT_API_DATABASE_CONNECTION_URL="postgresql+asyncpg://prefect:12321@localhost:5432/prefect"
+prefect config set PREFECT_LOGGING_LEVEL="INFO"
 ```
 
 # Database setup

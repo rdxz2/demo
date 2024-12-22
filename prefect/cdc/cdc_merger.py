@@ -82,30 +82,6 @@ class Merger:
     def run(self):
         # <<----- START: Apply migrations
 
-        # Create migration table if not exists
-        self.meta_cursor.execute(
-            f'''
-            SELECT COUNT(1)
-            FROM information_schema.tables
-            WHERE table_schema || '.' || table_name = '{MIGRATION_TABLE}'
-            '''
-        )
-        if not self.meta_cursor.fetchone()[0]:
-            self.meta_cursor.execute(f'CREATE TABLE {MIGRATION_TABLE} (created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, id SERIAL PRIMARY KEY, name VARCHAR(50) NOT NULL);')
-            self.meta_conn.commit()
-            self.logger.info('Migration table created')
-
-        # Apply migrations
-        migrations = {os.path.basename(x) for x in glob.glob('migrations/*.sql')}
-        self.meta_cursor.execute(f'SELECT name FROM {MIGRATION_TABLE};')
-        executed_migrations = set([x[0] for x in self.meta_cursor.fetchall()])
-        for new_migration in migrations - executed_migrations:
-            with open(f'migrations/{new_migration}', 'r') as f:
-                self.meta_cursor.execute(f.read())
-                self.meta_cursor.execute(f'INSERT INTO {MIGRATION_TABLE} (name) VALUES (%s);', (new_migration,))
-                self.meta_conn.commit()
-                self.logger.info(f'Migration {new_migration} applied')
-
         # END: Apply migrations ----->>
 
         # Get all merger tables
