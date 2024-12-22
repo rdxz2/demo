@@ -218,7 +218,7 @@ def merge(db: str, cutoff_ts: datetime):
 
 
 @flow
-def cdc__cdc_merger():
+def cdc__merger():
     logger = get_run_logger()
 
     conn, cursor = get_meta_connection()
@@ -237,4 +237,4 @@ def cdc__cdc_merger():
 
 
 if __name__ == '__main__':
-    cdc__cdc_merger()
+    cdc__merger()
