@@ -68,7 +68,8 @@ def all_dtype():
                 t_ts TIMESTAMPTZ,
                 t_dt TIMESTAMP,
                 t_date DATE,
-                t_time TIME,
+                t_time TIME WITHOUT TIME ZONE,
+                t_timetz TIME WITH TIME ZONE,
                 t_byte BYTEA
             );
             ALTER TABLE all_dtype REPLICA IDENTITY FULL;
@@ -79,10 +80,10 @@ def all_dtype():
         while not stop_event.is_set():
             cursor.execute(
                 f'''
-                INSERT INTO all_dtype (t_smallint, t_int, t_bigint, t_varchar, t_text, t_json, t_double, t_bool, t_ts, t_dt, t_date, t_time, t_byte) VALUES
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s),
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s),
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                INSERT INTO all_dtype (t_smallint, t_int, t_bigint, t_varchar, t_text, t_json, t_double, t_bool, t_ts, t_dt, t_date, t_time, t_timetz, t_byte) VALUES
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s),
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s),
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                 ''',
                 (
                     # Row 1
@@ -98,6 +99,7 @@ def all_dtype():
                     datetime.now(),
                     datetime.now().date(),
                     datetime.now().time(),
+                    datetime.now().time(),
                     bytes(random.randint(0, 255)),
                     # Row 2
                     random.randint(-32768, 32767),
@@ -111,6 +113,7 @@ def all_dtype():
                     datetime.now(timezone.utc),
                     datetime.now(),
                     datetime.now().date(),
+                    datetime.now().time(),
                     datetime.now().time(),
                     bytes(random.randint(0, 255)),
                     # Row 3
@@ -128,6 +131,7 @@ def all_dtype():
                     datetime.now(timezone.utc),
                     datetime.now(),
                     datetime.now().date(),
+                    datetime.now().time(),
                     datetime.now().time(),
                     bytes(random.randint(0, 255))
                 ),
