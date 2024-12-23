@@ -51,7 +51,7 @@ def fetch(sheet_id: str) -> str:
     if not os.path.exists(filedir):
         os.makedirs(filedir)
 
-    creds = service_account.Credentials.from_service_account_file(os.path.join(os.path.pardir, SA_FILENAME), scopes=GSHEET_SCOPES)
+    creds = service_account.Credentials.from_service_account_file(SA_FILENAME, scopes=GSHEET_SCOPES)
     service = discovery.build('sheets', 'v4', credentials=creds)
     rows = service.spreadsheets().values().get(spreadsheetId=GSHEET_ID, range=f'{GSHEET_SHEET}!{GSHEET_RANGE}').execute()['values']
     rows = [row for row in rows if row[0]]
@@ -92,7 +92,7 @@ def fetch(sheet_id: str) -> str:
 def upload_to_gcs(filename: str) -> str:
     gcs_filename = f'{GCS_BASE_PATH_DATALAKE}/{GCS_BASE_PATH_GSHEET}/{TODAY}/{os.path.basename(filename)}'
 
-    storage_client = storage.Client.from_service_account_json(os.path.join(os.path.pardir, SA_FILENAME))
+    storage_client = storage.Client.from_service_account_json(SA_FILENAME)
     storage_bucket = storage_client.bucket(GCS_BUCKET)
     storage_object = storage_bucket.blob(gcs_filename)
 
@@ -104,7 +104,7 @@ def upload_to_gcs(filename: str) -> str:
 
 @task(log_prints=True)
 def load_to_bq(gcs_filename: str):
-    bq_client = bigquery.Client.from_service_account_json(os.path.join(os.path.pardir, SA_FILENAME))
+    bq_client = bigquery.Client.from_service_account_json(SA_FILENAME)
 
     bq_table_fqn = f'{BQ_PROJECT_ID}.{BQ_DATASET_ID}.{BQ_TABLE_ID_PREFIX}{BQ_TABLE_ID}'
 
