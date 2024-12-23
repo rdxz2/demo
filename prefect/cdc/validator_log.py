@@ -125,7 +125,6 @@ def validate_log(db: str):
             'ms': int(result[0]),
             **{x: float(y) for x, y in zip(validate_cols, result[1:])}
         }
-        print(result['ms'])
         pg_results.append((schema, table, result))
 
     # BQ
