@@ -30,11 +30,11 @@ MERGER_THREADS = int(os.environ['MERGER_THREADS'])
 
 MIGRATION_TABLE = 'public.migration'
 
-APPLICATION_NAME = f'cdc-merger-{META_DB_NAME}-{generate_random_string()}'
+RANDOM_STRING = generate_random_string()
 
 
 def get_meta_connection():
-    conn = psycopg.connect(f'postgresql://{META_DB_USER}:{META_DB_PASS}@{META_DB_HOST}:{META_DB_PORT}/{META_DB_NAME}?application_name={APPLICATION_NAME}')
+    conn = psycopg.connect(f'postgresql://{META_DB_USER}:{META_DB_PASS}@{META_DB_HOST}:{META_DB_PORT}/{META_DB_NAME}?application_name=cdc-merger-{META_DB_NAME}-{RANDOM_STRING}')
     cursor = conn.cursor()
     return conn, cursor
 
@@ -56,8 +56,8 @@ class Merger:
             int(os.environ[f'__{self.db}_DB_PORT']),
             os.environ[f'__{self.db}_DB_NAME'],
         )
-        self.repl_conn = psycopg.connect(f'postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}?application_name={APPLICATION_NAME}')
-        self.repl_cursor = self.repl_conn.cursor()
+        self.db_conn = psycopg.connect(f'postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}?application_name=cdc-merger-{db}-{RANDOM_STRING}')
+        self.db_cursor = self.db_conn.cursor()
 
         self.bq_client = bigquery.Client.from_service_account_json(SA_FILENAME)
 
@@ -82,7 +82,7 @@ class Merger:
         # Get PK columns
         self.map_pk = {}
         for _, schema, table, _, _, _ in tables:
-            self.repl_cursor.execute(
+            self.db_cursor.execute(
                 '''
                 SELECT a.attname
                 FROM pg_index i
@@ -94,7 +94,7 @@ class Merger:
                 ''',
                 (f'{schema}.{table}',)
             )
-            self.map_pk[f'{schema}.{table}'] = [x[0] for x in self.repl_cursor.fetchall()]
+            self.map_pk[f'{schema}.{table}'] = [x[0] for x in self.db_cursor.fetchall()]
 
         thread_last_cutoff_ts_updator = threading.Thread(target=self.update_last_cutoff_ts, daemon=True)
         thread_last_cutoff_ts_updator.start()
@@ -209,8 +209,8 @@ class Merger:
         self.meta_cursor.close()
         self.meta_conn.close()
 
-        self.repl_cursor.close()
-        self.repl_conn.close()
+        self.db_cursor.close()
+        self.db_conn.close()
 
         self.bq_client.close()
 
@@ -229,8 +229,7 @@ def cdc__merger():
     logger = get_run_logger()
 
     conn, cursor = get_meta_connection()
-    cursor.execute('SELECT DISTINCT "database" FROM public.merger WHERE "is_active";')
-    dbs = [x[0] for x in cursor.fetchall()]
+    dbs = [x[0] for x in cursor.execute('SELECT DISTINCT "database" FROM public.merger WHERE "is_active";').fetchall()]
     cursor.close()
     conn.close()
 
