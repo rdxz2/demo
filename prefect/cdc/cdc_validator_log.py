@@ -5,17 +5,21 @@ import time
 
 from datetime import datetime, timezone
 from google.cloud import bigquery
-from loguru import logger
+from prefect import flow, task
+from prefect.logging import get_run_logger
+from textwrap import dedent
+from typing import Any
+from utill.my_string import generate_random_string, replace_nonnumeric
 
 dotenv.load_dotenv()
 
 SA_FILENAME = os.environ['SA_FILENAME']
 
-REPL_DB_HOST = os.environ['REPL_DB_HOST']
-REPL_DB_PORT = os.environ['REPL_DB_PORT']
-REPL_DB_USER = os.environ['REPL_DB_USER']
-REPL_DB_PASS = os.environ['REPL_DB_PASS']
-REPL_DB_NAME = os.environ['REPL_DB_NAME']
+META_DB_HOST = os.environ['META_DB_HOST']
+META_DB_PORT = int(os.environ['META_DB_PORT'])
+META_DB_USER = os.environ['META_DB_USER']
+META_DB_PASS = os.environ['META_DB_PASS']
+META_DB_NAME = os.environ['META_DB_NAME']
 
 STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S = int(os.environ['STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S'])
 STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S = int(os.environ['STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S'])
@@ -23,51 +27,114 @@ STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S = int(os.environ['STREAM_FILEWRITER_NO_
 BQ_PROJECT_ID = os.environ['BQ_PROJECT_ID']
 BQ_LOG_DATASET_PREFIX = os.environ['BQ_LOG_DATASET_PREFIX']
 
-if __name__ == '__main__':
-    client = bigquery.Client.from_service_account_json(os.path.join(os.path.pardir, SA_FILENAME))
+VALIDATION_INITIAL_ROUND_PRECISION = int(os.environ['VALIDATION_INITIAL_ROUND_PRECISION'])
 
-    conn = psycopg.connect(f'postgresql://{REPL_DB_USER}:{REPL_DB_PASS}@{REPL_DB_HOST}:{REPL_DB_PORT}/{REPL_DB_NAME}')
+RANDOM_STRING = generate_random_string()
+
+
+def get_meta_connection():
+    conn = psycopg.connect(f'postgresql://{META_DB_USER}:{META_DB_PASS}@{META_DB_HOST}:{META_DB_PORT}/{META_DB_NAME}?application_name=cdc-validator-log-{META_DB_NAME}-{RANDOM_STRING}')
     cursor = conn.cursor()
+    return conn, cursor
+
+
+def get_number_representation_pg(col: str, dtype: str) -> str:
+    match dtype:
+        case ('bigint' | 'integer' | 'smallint' | 'numeric' | 'double precision'):
+            return f'"{col}"::DECIMAL'
+        case ('date' | 'timestamp with time zone' | 'timestamp without time zone'):
+            return f'FLOOR(EXTRACT(EPOCH FROM "{col}"))'
+        case ('time with time zone' | 'time without time zone'):
+            return f'EXTRACT(\'hour\' FROM "{col}") + EXTRACT(\'minute\' FROM "{col}") + EXTRACT(\'second\' FROM "{col}")'
+        case ('boolean' | 'bool'):
+            return f'"{col}"::INTEGER'
+        case ('json' | 'jsonb'):
+            return f'LENGTH("{col}"::VARCHAR)'
+        case _:
+            return f'LENGTH("{col}")'
+
+
+def get_number_representation_bq(col: str, dtype: str) -> str:
+    match dtype:
+        case ('bigint' | 'integer' | 'smallint' | 'numeric' | 'double precision'):
+            return f'CAST(`{col}` AS DECIMAL)'
+        case ('date' | 'timestamp with time zone' | 'timestamp without time zone'):
+            return f'UNIX_SECONDS(TIMESTAMP(`{col}`))'
+        case ('time with time zone' | 'time without time zone'):
+            return f'EXTRACT(HOUR FROM `{col}`) + EXTRACT(MINUTE FROM `{col}`) + EXTRACT(SECOND FROM `{col}`)'
+        case ('boolean' | 'bool'):
+            return f'CAST(`{col}` AS INTEGER)'
+        case ('json' | 'jsonb'):
+            return f'LENGTH(TO_JSON_STRING(`{col}`))'
+        case _:
+            return f'LENGTH(`{col}`)'
+
+
+@task
+def validate_log(db: str):
+    logger = get_run_logger()
+    logger.info(f'Validating {db}...')
+
+    client = bigquery.Client.from_service_account_json(SA_FILENAME)
+
+    meta_conn, meta_cursor = get_meta_connection()
+
+    db_env = replace_nonnumeric(db.upper(), '_')
+    db_user, db_pass, db_host, db_port, db_name = (
+        os.environ[f'__{db_env}_DB_USER'],
+        os.environ[f'__{db_env}_DB_PASS'],
+        os.environ[f'__{db_env}_DB_HOST'],
+        int(os.environ[f'__{db_env}_DB_PORT']),
+        os.environ[f'__{db_env}_DB_NAME'],
+    )
+    db_conn = psycopg.connect(f'postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}?application_name=cdc-validator-log-{db}-{RANDOM_STRING}')
+    db_cursor = db_conn.cursor()
 
     # Get all tables
-    all_tables = cursor.execute(
-        f'''
-        SELECT table_schema
-            , table_name
-        FROM information_schema.tables
-        WHERE table_schema = 'public'
-        '''
-    ).fetchall()
+    all_tables = meta_cursor.execute('SELECT "schema", "table", "validate_cols" FROM public.merger WHERE "is_active" AND "database" = %s ORDER BY 1, 2, 3;', (db, )).fetchall()
+
+    # Fetch validation cols dtypes
+    logger.debug('Fetching validation cols dtypes...')
+    map__validate_cols__dtype = {}
+    for schema, table, validate_cols in all_tables:
+        for validate_col in validate_cols:
+            map__validate_cols__dtype[f'{schema}.{table}.{validate_col}'] = \
+                db_cursor.execute('SELECT "data_type" FROM information_schema.columns WHERE "table_schema" = %s AND "table_name" = %s AND "column_name" = %s;', (schema, table, validate_col)).fetchone()[0]
 
     # PG
-    pg_data = []
-    for table_schema, table_name in sorted(all_tables, key=lambda x: f'{x[0]}.{x[1]}'):
-        logger.info(f'Get PG {table_schema}.{table_name}...')
+    pg_results: list[tuple[str, str, dict[str, Any]]] = []
+    for schema, table, validate_cols in all_tables:
+        # Skip if table is empty
+        if not db_cursor.execute(f'SELECT 1 FROM {schema}.{table} LIMIT 1;').fetchone():
+            logger.info(f'Table {schema}.{table} empty')
+            continue
+
+        logger.info(f'Get PG {schema}.{table}...')
 
         # Get PG data
-        ms, max_id, v_pg = cursor.execute(
+        validate_cols_representations = [get_number_representation_pg(validate_col, map__validate_cols__dtype[f'{schema}.{table}.{validate_col}']) for validate_col in validate_cols]
+        validate_cols_query_str = ', '.join([f'AVG({repr}) AS "col"' for col, repr in zip(validate_cols, validate_cols_representations)])
+        result = db_cursor.execute(
             f'''
-                WITH t1 AS (
-                    SELECT max(id) AS max_id FROM {table_schema}.{table_name}
-                )
-                SELECT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP) * 1000000 AS ms, (SELECT max_id FROM t1) AS max_id, SUM(id::DECIMAL / (SELECT max_id FROM t1)) AS v
-                FROM {table_schema}.{table_name}
+            SELECT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP) * 1000000 AS ms, {validate_cols_query_str}
+            FROM {schema}.{table};
             '''
         ).fetchone()
-        if not v_pg:
-            logger.warning(f'Table {table_schema}.{table_name} empty')
-            continue
-        ms = int(ms)
-        v_pg = round(float(v_pg), 10)
-
-        pg_data.append((table_schema, table_name, ms, max_id, v_pg))
+        db_conn.commit()
+        result = {
+            'ms': int(result[0]),
+            **{x: float(y) for x, y in zip(validate_cols, result[1:])}
+        }
+        print(result['ms'])
+        pg_results.append((schema, table, result))
 
     # BQ
     max_interval_s = max(STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S, STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S)
     mismatches = []
-    for table_schema, table_name, ms, max_id, v_pg in pg_data:
+    for schema, table, pg_result in pg_results:
+        logger.info(f'Get BQ {schema}.{table}...')
 
-        logger.info(f'Get BQ {table_schema}.{table_name}...')
+        ms: int = pg_result.pop('ms')
 
         # Wait until BQ data is ready (streamer & uploader)
         diff = (datetime.now(timezone.utc) - datetime.fromtimestamp(ms / 1000000, timezone.utc)).total_seconds()
@@ -76,46 +143,74 @@ if __name__ == '__main__':
             time.sleep(max_interval_s - diff)
 
         # Get BQ data
-        v_bq, = list(client.query_and_wait(
+        bq_table_fqn = f'{BQ_PROJECT_ID}.{BQ_LOG_DATASET_PREFIX}{db}.{schema}__{table}'
+        cols_str = ', '.join([f'`{col}`' for col in pg_result.keys()])
+        validate_cols_representations = [get_number_representation_bq(validate_col, map__validate_cols__dtype[f'{schema}.{table}.{validate_col}']) for validate_col in pg_result.keys()]
+        validate_cols_query_str = ', '.join([f'AVG({repr}) AS `{col}`' for col, repr in zip(pg_result.keys(), validate_cols_representations)])
+        bq_result = {x: float(y) for x, y in list(client.query_and_wait(dedent(
             f'''
                 WITH t1 AS (  -- Get the latest truncate operation
-                    SELECT COALESCE(MAX(__tx_commit_ts), TIMESTAMP_MILLIS(0)) AS max__tx_commit_ts
-                    FROM `{BQ_PROJECT_ID}.{BQ_LOG_DATASET_PREFIX}{REPL_DB_NAME}.{table_schema}__{table_name}`
-                    WHERE __tx_commit_ts <= TIMESTAMP_MICROS({ms})
-                        AND __m_op = 'T'
+                    SELECT COALESCE(MAX(`__tx_commit_ts`), TIMESTAMP_MILLIS(0)) AS `latest_truncate_ts`
+                    FROM `{bq_table_fqn}`
+                    WHERE `__tx_commit_ts` <= TIMESTAMP_MICROS({ms})
+                        AND `__m_op` = 'T'
                 )
                 , t2 AS (
-                    SELECT id
-                    FROM `{BQ_PROJECT_ID}.{BQ_LOG_DATASET_PREFIX}{REPL_DB_NAME}.{table_schema}__{table_name}`
-                    WHERE __tx_commit_ts > (SELECT max__tx_commit_ts FROM t1)  -- Ignore all data before the latest truncate operation
-                        AND __tx_commit_ts <= TIMESTAMP_MICROS({ms})
-                    QUALIFY ROW_NUMBER() OVER(PARTITION BY id ORDER BY __tx_commit_ts DESC) = 1
-                        AND __m_op NOT IN ('D')
+                    SELECT {cols_str}
+                    FROM `{bq_table_fqn}`
+                    WHERE `__tx_commit_ts` > (SELECT `latest_truncate_ts` FROM t1)  -- Ignore all data before the latest truncate operation
+                        AND `__tx_commit_ts` <= TIMESTAMP_MICROS({ms})
+                        AND `__m_op` != 'B'  -- Ignore BEFORE record
+                    QUALIFY ROW_NUMBER() OVER(PARTITION BY id ORDER BY `__tx_commit_ts` DESC, `__m_ord` DESC) = 1
+                        AND `__m_op` NOT IN ('D')
                 )
-                , t3 AS (
-                    SELECT MAX(id) AS max_id FROM t2
-                )
-                SELECT SUM(id / (SELECT max_id FROM t3)) AS v
+                SELECT {validate_cols_query_str}
                 FROM t2
             '''
-        ))[0]
-        v_bq = round(v_bq, 10)
+        )))[0].items()}
 
-        logger.debug(f'Compare table: {table_schema}.{table_name} -- MS: {ms} -- MAX_ID: {max_id} -- V_PG: {v_pg} -- V_BQ: {v_bq}')
-        if v_pg != v_bq:
-            x = 10
+        # Compare each validate cols
+        for validate_col, pg_value in pg_result.items():
+            bq_value = bq_result[validate_col]
+
+            # If not matched, try to validate using lesser round precision
             is_matched = False
-            while x > 0:
-                x -= 1
-                logger.warning(f'Validation failed for {table_schema}.{table_name}, retying with round {x} --> V_PG: {round(v_pg, x)} V_BQ: {round(v_bq, x)}')
-                if round(v_pg, x) == round(v_bq, x):
-                    logger.warning('Success')
+            for i in range(VALIDATION_INITIAL_ROUND_PRECISION, -1, -1):
+                pg_value_rounded = round(pg_value, i)
+                bq_value_rounded = round(bq_value, i)
+                logger.debug(f'Validate {schema}.{table}.{validate_col} -- PG: {pg_value_rounded} -- BQ: {bq_value_rounded} -- Decimal precision: {i}')
+                if pg_value_rounded == bq_value_rounded:
                     is_matched = True
+                    logger.info(f'Validate success for {schema}.{table}.{validate_col} -- PG: {pg_value_rounded} -- BQ: {bq_value_rounded} -- Decimal precision: {i}')
                     break
-
             if not is_matched:
-                logger.error(f'Validation failed for {table_schema}.{table_name}')
-                mismatches.append((table_schema, table_name, ms, max_id, v_pg, v_bq))
+                mismatches.append((schema, table, validate_col, ms, pg_value, bq_value))
 
-    for mismatch in mismatches:
-        logger.error(f'Mismatched: {mismatch}')
+    for schema, table, validate_col, ms, pg_value, bq_value in mismatches:
+        logger.error(f'Mismatched: {schema}.{table}.{validate_col} -- PG: {pg_value} -- BQ: {bq_value} -- ms: {ms}')
+
+    meta_cursor.close()
+    meta_conn.close()
+
+    if mismatches:
+        raise ValueError('Mismatched value detected, please check the ERROR logs')
+
+
+@flow
+def cdc__validator_log():
+    logger = get_run_logger()
+
+    conn, cursor = get_meta_connection()
+    dbs = [x[0] for x in cursor.execute('SELECT DISTINCT "database" FROM public.merger WHERE "is_active";').fetchall()]
+    cursor.close()
+    conn.close()
+
+    logger.info('Starting cdc validator (log)...')
+    futures = [validate_log.with_options(name=f'validate-log-{db}').submit(db) for db in dbs]
+    for future in futures:
+        future.result()
+    logger.info('Exiting cdc validator (log)')
+
+
+if __name__ == '__main__':
+    cdc__validator_log()
