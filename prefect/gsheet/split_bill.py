@@ -8,6 +8,7 @@ from google.api_core.exceptions import NotFound
 from google.cloud import storage, bigquery
 from google.oauth2 import service_account
 from prefect import flow, task
+from prefect.logging import get_run_logger
 
 dotenv.load_dotenv()
 
@@ -44,12 +45,15 @@ BQ_TABLE_COLS = {
 TODAY = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
 
-@task(log_prints=True)
+@task
 def fetch(sheet_id: str) -> str:
+    logger = get_run_logger()
+
     filename = os.path.join(OUTPUT_DIR, f'{sheet_id}_{TODAY}.csv')
     filedir = os.path.dirname(filename)
     if not os.path.exists(filedir):
         os.makedirs(filedir)
+        logger.debug(f'Created directory {filedir}')
 
     creds = service_account.Credentials.from_service_account_file(SA_FILENAME, scopes=GSHEET_SCOPES)
     service = discovery.build('sheets', 'v4', credentials=creds)
@@ -83,13 +87,14 @@ def fetch(sheet_id: str) -> str:
         csv_writer = csv.writer(f)
         csv_writer.writerow(BQ_TABLE_COLS.keys())
         csv_writer.writerows(rows)
-    print(f'Fetched {len(rows)} rows from {GSHEET_ID}:{GSHEET_SHEET}!{GSHEET_RANGE} to {filename}')
+    logger.info(f'Fetched {len(rows)} rows from {GSHEET_ID}:{GSHEET_SHEET}!{GSHEET_RANGE} to {filename}')
 
     return filename
 
 
-@task(log_prints=True)
+@task
 def upload_to_gcs(filename: str) -> str:
+    logger = get_run_logger()
     gcs_filename = f'{GCS_BASE_PATH_DATALAKE}/{GCS_BASE_PATH_GSHEET}/{TODAY}/{os.path.basename(filename)}'
 
     storage_client = storage.Client.from_service_account_json(SA_FILENAME)
@@ -98,12 +103,14 @@ def upload_to_gcs(filename: str) -> str:
 
     storage_object.upload_from_filename(filename)
     storage_client.close()
-    print(f'Uploaded {filename} to {gcs_filename}')
+    logger.info(f'Uploaded {filename} to {gcs_filename}')
     return gcs_filename
 
 
-@task(log_prints=True)
+@task
 def load_to_bq(gcs_filename: str):
+    logger = get_run_logger()
+
     bq_client = bigquery.Client.from_service_account_json(SA_FILENAME)
 
     bq_table_fqn = f'{BQ_PROJECT_ID}.{BQ_DATASET_ID}.{BQ_TABLE_ID_PREFIX}{BQ_TABLE_ID}'
@@ -112,7 +119,7 @@ def load_to_bq(gcs_filename: str):
     try:
         bq_table = bq_client.get_table(bq_table_fqn)
         bq_client.delete_table(bq_table)
-        print(f'Table dropped: {bq_table_fqn}')
+        logger.info(f'Table dropped: {bq_table_fqn}')
     except NotFound:
         pass
     schema = [
@@ -120,7 +127,7 @@ def load_to_bq(gcs_filename: str):
     ]
     table = bigquery.Table(bq_table_fqn, schema=schema)
     bq_table = bq_client.create_table(table)
-    print(f'Table created: {bq_table_fqn}')
+    logger.info(f'Table created: {bq_table_fqn}')
 
     job_config = bigquery.LoadJobConfig()
     job_config.source_format = bigquery.SourceFormat.CSV
@@ -130,13 +137,15 @@ def load_to_bq(gcs_filename: str):
     load_job = bq_client.load_table_from_uri(f'gs://{GCS_BUCKET}/{gcs_filename}', bq_table, job_config=job_config)
     load_job.result()
     bq_client.close()
-    print(f'Loaded {gcs_filename} to {bq_table_fqn}')
+    logger.info(f'Loaded {gcs_filename} to {bq_table_fqn}')
 
 
-@task(log_prints=True)
+@task
 def cleanup(filename: str):
+    logger = get_run_logger()
+
     os.remove(filename)
-    print(f'Removed {filename}')
+    logger.info(f'Removed {filename}')
 
 
 @flow
