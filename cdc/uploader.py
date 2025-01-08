@@ -326,6 +326,8 @@ class Uploader:
 
 
 if __name__ == '__main__':
+    # TODO: Stream merge without log table
+
     # Create output directory if not exists
     if not os.path.exists(PROTO_OUTPUT_DIR):
         os.makedirs(PROTO_OUTPUT_DIR)
