@@ -61,6 +61,16 @@ EXECUTE FUNCTION f__set_replica_identity_full();
 
 # Run Metabase
 
-```sql
+```sh
 ./run.sh
+```
+
+## As a system service
+
+```
+sudo ln -s metabase.service /etc/systemd/system/metabase.service
+
+sudo systemctl daemon-reload
+sudo systemctl enable metabase.service
+sudo systemctl start metabase.service
 ```
