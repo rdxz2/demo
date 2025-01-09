@@ -50,3 +50,89 @@ cd metabase
 cd prefect
 prefect server start
 ```
+
+# Deployment
+
+## General setup
+
+```sh
+sudo timedatectl set-timezone Asia/Jakarta
+```
+
+Clone git repository
+
+```sh
+vim ~/.ssh/access-key-bitbucket  # Or generate the access key, need to register this access key into BitBucket
+
+# Register the access key
+eval $(ssh-agent -s)
+ssh-add ~/.ssh/access-key-bitbucket
+
+git clone git@bitbucket.org:xz2/demo.git
+```
+
+## Install PostgreSQL
+
+```sh
+sudo apt install curl ca-certificates
+sudo install -d /usr/share/postgresql-common/pgdg
+sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+
+sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+
+sudo apt update -y
+sudo apt install -y postgresql-16
+```
+
+## Metabase
+
+Site name: **metabase.rdxz2.site**
+
+### Install SSL certificate
+
+```sh
+sudo apt install -y certbot
+
+sudo certbot certonly --manual --preferred-challenges dns
+```
+
+It will generate a token, copy it
+
+- Go to Hostinger > Select **metabase.rdxz2.site** > DNS / Nameservers, add a new record
+  - Type: **TXT**
+  - Name: **\_acme-challenge**
+  - Content: **_Paste the token_**
+- Go to https://dnschecker.org/, search for **\_acme-challenge.metabase.rdxz2.site** using type **TXT** -> should display checklist along with the provided token
+- Go back to the terminal, press ENTER to finalize
+
+```sh
+sudo cat /etc/letsencrypt/live/metabase.rdxz2.site/fullchain.pem
+# Copy the value into load balancer configuration: Certificate
+
+sudo cat /etc/letsencrypt/live/metabase.rdxz2.site/privkey.pem
+# Copy the value into load balancer configuration: Private key
+```
+
+### Create load balancer
+
+### Configure A record
+
+- Go to Hostinger > Select **metabase.rdxz2.site** > DNS / Nameservers, add a new record
+  - Type: **A**
+  - Name: **metabase**
+  - Content: **_Past load balancer IP address_**
+- Go to https://dnschecker.org/, search for **metabase.rdxz2.site** using type **A** -> should display checklist
+
+### Run metabase service
+
+See: [Metabase section](./metabase/README.md)
+
+### Renew SSL certificate
+
+```sh
+sudo crontab -e
+
+0 0 * * * certbot renew --quiet
+```
+
+## Prefect
