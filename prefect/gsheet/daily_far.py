@@ -60,13 +60,14 @@ def fetch(sheet_id: str) -> str:
     creds = service_account.Credentials.from_service_account_file(SA_FILENAME, scopes=GSHEET_SCOPES)
     service = discovery.build('sheets', 'v4', credentials=creds)
     rows = service.spreadsheets().values().get(spreadsheetId=GSHEET_ID, range=f'{GSHEET_SHEET}!{GSHEET_RANGE}', valueRenderOption='UNFORMATTED_VALUE').execute()['values']
-    rows = [row for row in rows if row[0]]
 
     cols_length = len(BQ_TABLE_COLS)
     for i in range(len(rows)):
         for j, bq_col in enumerate(BQ_TABLE_COLS.items()):
             # Prevent index not found
             if not cols_length > j:
+                continue
+            if not rows[i][j]:
                 continue
 
             col, dtype = bq_col
