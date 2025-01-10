@@ -71,6 +71,18 @@ ssh-add ~/.ssh/access-key-bitbucket
 git clone git@bitbucket.org:xz2/demo.git
 ```
 
+Install python
+
+```sh
+sudo apt install -y python3.12 python3.12-venv
+```
+
+Install certbot
+
+```sh
+sudo apt install -y certbot
+```
+
 ## Install PostgreSQL
 
 ```sh
@@ -91,12 +103,10 @@ Site name: **metabase.rdxz2.site**
 ### Install SSL certificate
 
 ```sh
-sudo apt install -y certbot
-
 sudo certbot certonly --manual --preferred-challenges dns
 ```
 
-It will generate a token, copy it
+When asked for site, type **metabase.rdxz2.site**, it will generate a token, copy it
 
 - Go to Hostinger > Select **metabase.rdxz2.site** > DNS / Nameservers, add a new record
   - Type: **TXT**
@@ -113,14 +123,16 @@ sudo cat /etc/letsencrypt/live/metabase.rdxz2.site/privkey.pem
 # Copy the value into load balancer configuration: Private key
 ```
 
-### Create load balancer
+### Create external regional application load balancer
+
+**Create the load balancer**
 
 ### Configure A record
 
 - Go to Hostinger > Select **metabase.rdxz2.site** > DNS / Nameservers, add a new record
   - Type: **A**
   - Name: **metabase**
-  - Content: **_Past load balancer IP address_**
+  - Content: **_Paste load balancer IP address_**
 - Go to https://dnschecker.org/, search for **metabase.rdxz2.site** using type **A** -> should display checklist
 
 ### Run metabase service
@@ -136,3 +148,42 @@ sudo crontab -e
 ```
 
 ## Prefect
+
+### Install SSL certificate
+
+```sh
+sudo certbot certonly --manual --preferred-challenges dns
+```
+
+When asked for site, type **prefect.rdxz2.site**, it will generate a token, copy it
+
+- Go to Hostinger > Select **prefect.rdxz2.site** > DNS / Nameservers, add a new record
+  - Type: **TXT**
+  - Name: **\_acme-challenge**
+  - Content: **_Paste the token_**
+- Go to https://dnschecker.org/, search for **\_acme-challenge.prefect.rdxz2.site** using type **TXT** -> should display checklist along with the provided token
+- Go back to the terminal, press ENTER to finalize
+
+```sh
+sudo cat /etc/letsencrypt/live/prefect.rdxz2.site/fullchain.pem
+# Copy the value into load balancer configuration: Certificate
+
+sudo cat /etc/letsencrypt/live/prefect.rdxz2.site/privkey.pem
+# Copy the value into load balancer configuration: Private key
+```
+
+### Create external regional application load balancer
+
+**Create the load balancer**
+
+### Configure A record
+
+- Go to Hostinger > Select **prefect.rdxz2.site** > DNS / Nameservers, add a new record
+  - Type: **A**
+  - Name: **prefect**
+  - Content: **_Paste load balancer IP address_**
+- Go to https://dnschecker.org/, search for **prefect.rdxz2.site** using type **A** -> should display checklist
+
+### Run prefect service
+
+See: [Prefect section](./prefect/README.md)

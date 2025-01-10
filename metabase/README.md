@@ -59,16 +59,16 @@ WHEN TAG IN ('CREATE TABLE')
 EXECUTE FUNCTION f__set_replica_identity_full();
 ```
 
-# Run Metabase
+# Run Metabase locally
 
 ```sh
 ./run.sh
 ```
 
-## As a system service
+# Run Metabase as system service
 
-```
-sudo ln -s metabase.service /etc/systemd/system/metabase.service
+```sh
+sudo ln -s /path/to/metabase.service /etc/systemd/system/metabase.service
 
 sudo systemctl daemon-reload
 sudo systemctl enable metabase.service
