@@ -1,6 +1,6 @@
 [Unit]
 Description=Metabase Service
-After=network.target
+After=postgresql.service
 
 [Service]
 User=ubuntu
