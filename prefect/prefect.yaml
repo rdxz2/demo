@@ -14,46 +14,84 @@ push:
 
 # pull section allows you to provide instructions for cloning this project in remote locations
 pull:
-- prefect.deployments.steps.set_working_directory:
-    directory: /home/ubuntu/repos/xz2/demo/prefect
+  - prefect.deployments.steps.set_working_directory:
+      directory: /home/ubuntu/repos/xz2/demo/prefect
 
 # the deployments section allows you to provide configuration for deploying flows
 deployments:
-- name: deployment__gsheet__split_bill
-  version:
-  tags:
-    - gsheet
-    - bq
-  concurrency_limit:
-  description:
-  entrypoint: gsheet/split_bill.py:gsheet__split_bill
-  parameters: {}
-  work_pool:
-    name: work-pool-1
-    work_queue_name:
-    job_variables: {}
-  enforce_parameter_schema: true
-  schedules:
-  - cron: 0 0 * * *
-    timezone: UTC
-    day_or: true
-    active: true
-- name: deployment__cdc__cdc_merger
-  version:
-  tags:
-    - cdc
-    - bq
-  concurrency_limit:
-  description:
-  entrypoint: cdc/cdc_merger.py:cdc__cdc_merger
-  parameters: {}
-  work_pool:
-    name: work-pool-1
-    work_queue_name:
-    job_variables: {}
-  enforce_parameter_schema: true
-  schedules:
-  - cron: 0 1 * * *
-    timezone: UTC
-    day_or: true
-    active: true
+  - name: deployment__gsheet__split_bill
+    version:
+    tags:
+      - gsheet
+      - bq
+    concurrency_limit:
+    description:
+    entrypoint: gsheet/split_bill.py:gsheet__split_bill
+    parameters: {}
+    work_pool:
+      name: work-pool-1
+      work_queue_name:
+      job_variables: {}
+    enforce_parameter_schema: true
+    schedules:
+      - cron: 0 0 * * *
+        timezone: UTC
+        day_or: true
+        active: true
+  - name: deployment__gsheet__daily_rd
+    version:
+    tags:
+      - gsheet
+      - bq
+    concurrency_limit:
+    description:
+    entrypoint: gsheet/daily_rd.py:gsheet__daily_rd
+    parameters: {}
+    work_pool:
+      name: work-pool-2
+      work_queue_name:
+      job_variables: {}
+    enforce_parameter_schema: true
+    schedules:
+      - cron: 0 6 * * *
+        timezone: Asia/Jakarta
+        day_or: true
+        active: true
+  - name: deployment__gsheet__daily_far
+    version:
+    tags:
+      - gsheet
+      - bq
+    concurrency_limit:
+    description:
+    entrypoint: gsheet/daily_far.py:gsheet__daily_far
+    parameters: {}
+    work_pool:
+      name: work-pool-2
+      work_queue_name:
+      job_variables: {}
+    enforce_parameter_schema: true
+    schedules:
+      - cron: 0 6 * * *
+        timezone: Asia/Jakarta
+        day_or: true
+        active: true
+  - name: deployment__cdc__cdc_merger
+    version:
+    tags:
+      - cdc
+      - bq
+    concurrency_limit:
+    description:
+    entrypoint: cdc/cdc_merger.py:cdc__cdc_merger
+    parameters: {}
+    work_pool:
+      name: work-pool-1
+      work_queue_name:
+      job_variables: {}
+    enforce_parameter_schema: true
+    schedules:
+      - cron: 0 1 * * *
+        timezone: UTC
+        day_or: true
+        active: true
