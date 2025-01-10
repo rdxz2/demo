@@ -1,3 +1,3 @@
-source ~/venv/bin/activate
+source ~/venv/prefect/bin/activate
 
 prefect server start
