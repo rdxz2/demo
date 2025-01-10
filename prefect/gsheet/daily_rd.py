@@ -153,7 +153,7 @@ def cleanup(filename: str):
 
 
 @flow
-def gsheet__split_bill():
+def gsheet__daily_rd():
     filename = fetch(GSHEET_ID)
 
     gcs_filename = upload_to_gcs(filename)
@@ -164,4 +164,4 @@ def gsheet__split_bill():
 
 
 if __name__ == '__main__':
-    gsheet__split_bill()
+    gsheet__daily_rd()
