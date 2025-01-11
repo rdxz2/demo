@@ -1,6 +1,6 @@
+import csv
 import dotenv
 import os
-import csv
 
 from apiclient import discovery
 from datetime import datetime, timezone, timedelta
@@ -9,6 +9,7 @@ from google.cloud import storage, bigquery
 from google.oauth2 import service_account
 from prefect import flow, task
 from prefect.logging import get_run_logger
+from uuid import uuid4
 
 dotenv.load_dotenv()
 
@@ -51,7 +52,7 @@ TODAY = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 def fetch(sheet_id: str) -> str:
     logger = get_run_logger()
 
-    filename = os.path.join(OUTPUT_DIR, f'{sheet_id}_{TODAY}.csv')
+    filename = os.path.join(OUTPUT_DIR, f'{sheet_id}_{TODAY}_{uuid4()}.csv')
     filedir = os.path.dirname(filename)
     if not os.path.exists(filedir):
         os.makedirs(filedir)
