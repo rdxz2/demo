@@ -7,7 +7,7 @@ from typing import Any
 from utill.my_string import generate_random_string
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
-from config.settings import BQ_PROJECT_ID, CDC__STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S, CDC__STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S, CDC__BQ_LOG_DATASET_PREFIX, CDC__VALIDATION_INITIAL_ROUND_PRECISION
+from config.settings import SA_FILENAME, BQ_PROJECT_ID, CDC__STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S, CDC__STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S, CDC__BQ_LOG_DATASET_PREFIX, CDC__VALIDATION_INITIAL_ROUND_PRECISION
 from plugins.constants.conn import CONN_ID_PG_CDC
 from plugins.hooks.bigquery import BigQueryHook
 
@@ -51,7 +51,7 @@ def get_number_representation_bq(col: str, dtype: str) -> str:
 def validate_log(conn_id: str):
     logger.info(f'Validating {conn_id}...')
 
-    bigquery_hook = BigQueryHook()
+    bigquery_hook = BigQueryHook(SA_FILENAME)
 
     postgres_hook_meta = PostgresHook(CONN_ID_PG_CDC)
     meta_conn = postgres_hook_meta.get_conn()

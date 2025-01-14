@@ -3,6 +3,7 @@ import os
 import logging
 
 from airflow.providers.postgres.hooks.postgres import PostgresHook
+from plugins.constants.conn import CONN_ID_PG_CDC
 from utill.my_string import generate_random_string
 
 
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def migrate():
-    postgres_hook = PostgresHook('cdc')
+    postgres_hook = PostgresHook(CONN_ID_PG_CDC)
     conn = postgres_hook.get_conn()
     cursor = conn.cursor()
 
@@ -33,8 +34,9 @@ def migrate():
         logger.info('Migration table created')
 
     # Apply migrations
-    migrations = {os.path.basename(x) for x in glob.glob('migrations/*.sql')}
-    executed_migrations = set([x[0] for x in cursor.execute(f'SELECT name FROM {MIGRATION_TABLE};').fetchall()])
+    migrations = {os.path.basename(x) for x in glob.glob(os.path.join(os.path.dirname(__file__), 'migrations', '*.sql'))}
+    cursor.execute(f'SELECT name FROM {MIGRATION_TABLE};')
+    executed_migrations = set([x[0] for x in cursor.fetchall()])
     for new_migration in migrations - executed_migrations:
         with open(f'migrations/{new_migration}', 'r') as f:
             cursor.execute(f.read())
@@ -48,3 +50,7 @@ def migrate():
 
     cursor.close()
     conn.close()
+
+
+if __name__ == '__main__':
+    migrate()

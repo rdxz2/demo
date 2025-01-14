@@ -7,6 +7,7 @@ from datetime import datetime
 from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
 from queue import Queue, Empty
+from textwrap import dedent
 from utill.my_string import generate_random_string
 
 from config.settings import SA_FILENAME, BQ_PROJECT_ID, BQ_DATASET_LOCATION, CDC__MERGER_THREADS, CDC__BQ_LOG_DATASET_PREFIX
@@ -99,13 +100,21 @@ class Merger:
         bq_table_main_fqn = f'{BQ_PROJECT_ID}.{database}.{schema}__{table}'
         logger.debug(f'{bq_table_main_fqn}: merging...')
 
+        if not self.map_pk[f'{schema}.{table}']:
+            logger.warning(f'{bq_table_main_fqn}: no primary key found')
+            return
+
         if last_cutoff_ts >= self.cutoff_ts:
-            logger.info(f'{bq_table_main_fqn}: last merge timestamp {last_cutoff_ts} is same or later than cutoff timestamp {self.cutoff_ts}')
+            logger.warning(f'{bq_table_main_fqn}: last merge timestamp {last_cutoff_ts} is same or later than cutoff timestamp {self.cutoff_ts}')
             return
 
         # <<----- START: Detect schema changes
 
-        bq_table_log = self.bq_client.get_table(bq_table_log_fqn)
+        try:
+            bq_table_log = self.bq_client.get_table(bq_table_log_fqn)
+        except NotFound:
+            logger.warning(f'{bq_table_log_fqn}: log table not found')
+            return
         bq_table_log_schema = [x for x in bq_table_log.schema if not x.name.startswith('__')]
         try:
             bq_table_main = self.bq_client.get_table(bq_table_main_fqn)
@@ -137,7 +146,7 @@ class Merger:
         pks_str = ', '.join([f'`{x}`' for x in self.map_pk[f'{schema}.{table}']])
         cols_str = ', '.join([f'`{x.name}`' for x in bq_table_main_schema.values()])
         cols_update_str = ', '.join([f'T.`{x.name}` = S.`{x.name}`' for x in bq_table_main_schema.values()])
-        self.bq_client.query_and_wait(
+        self.bq_client.query_and_wait(dedent(
             f'''
             MERGE `{bq_table_main_fqn}` T
             USING (
@@ -161,7 +170,7 @@ class Merger:
             WHEN MATCHED AND S.`__m_op` = 'D' THEN DELETE
             WHEN MATCHED AND S.`__m_op` = 'U' THEN UPDATE SET {cols_update_str}
             '''
-        )
+        ))
         logger.info(f'{bq_table_main_fqn}: merged')
 
         # Instruct to update cutoff ts serially
