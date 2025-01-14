@@ -8,7 +8,7 @@ from scripts.cdc.merger import merge
 from scripts.cdc.validator_log import validate_log
 
 with DAG(
-    dag_id='cdc',
+    dag_id='cdc_merger',
     start_date=datetime(2025, 1, 1),
     schedule='0 7 * * *',
     catchup=False,
