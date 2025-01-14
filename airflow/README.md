@@ -23,27 +23,35 @@ pip install __PACKAGE__ --constraint "${CONSTRAINT_URL}"
 
 ```sql
 CREATE USER airflow WITH PASSWORD '12321' LOGIN;
+CREATE USER airflow_readonly WITH PASSWORD '12321' LOGIN;
 
 CREATE DATABASE airflow;
+
 GRANT ALL PRIVILEGES ON DATABASE airflow TO airflow;
 
 \c airflow
+-- Publication
+CREATE PUBLICATION "airflow" FOR ALL TABLES;
+SELECT PG_CREATE_REPLICATION_SLOTS('airflow', 'pgoutput');
+GRANT USAGE ON SCHEMA public TO repl;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO repl;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO repl;
+-- The owner
+GRANT USAGE ON SCHEMA public TO airflow;
 GRANT ALL ON SCHEMA public TO airflow;
+-- Readonly
+GRANT USAGE ON SCHEMA public TO airflow_readonly;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO airflow_readonly;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO airflow_readonly;
 ```
 
-# Airflow service setup
+# Run Airflow locally
 
-```sh
-ln -s __REPO_DIR__/airflow/webserver_config.py __AIRFLOW_HOME__/
-```
-
-Init DB
+Database initialization
 
 ```sh
 airflow db init
 ```
-
-# Run Airflow locally
 
 Run scheduler
 
@@ -60,33 +68,5 @@ airflow webserver
 Create admin user locally (DB auth)
 
 ```sh
-airflow users create --username admin --firstname Admin --lastname Admin --role Admin --email admin@somesite.site
-```
-
-# Run Airflow as system service
-
-Web server
-
-```sh
-sudo ln -s __REPO_DIR__/airflow/airflow-webserver.service /etc/systemd/system/airflow-webserver.service
-
-sudo systemctl daemon-reload
-sudo systemctl enable airflow-webserver.service
-sudo systemctl start airflow-webserver.service
-```
-
-Scheduler
-
-```sh
-sudo ln -s __REPO_DIR__/airflow/airflow-scheduler.service /etc/systemd/system/airflow-scheduler.service
-
-sudo systemctl daemon-reload
-sudo systemctl enable airflow-scheduler.service
-sudo systemctl start airflow-scheduler.service
-```
-
-# Assign admin role for new user login
-
-```sh
-airflow users add-role --email __EMAIL__ --role Admin
+airflow users create --username admin --firstname Admin --lastname Admin --role Admin --email admin@some.site
 ```

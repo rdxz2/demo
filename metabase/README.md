@@ -19,14 +19,25 @@ sudo apt update -y && sudo apt install -y default-jre
 ```sql
 CREATE USER metabase WITH PASSWORD '12321' LOGIN;
 CREATE USER metabase_readonly WITH PASSWORD '12321' LOGIN;
-CREATE DATABASE metabase OWNER metabase;
-\c metabase
-CREATE PUBLICATION "metabase" FOR ALL TABLES;
 
+CREATE DATABASE metabase OWNER metabase;
+
+GRANT ALL PRIVILEGES ON DATABASE metabase TO metabase;
+
+\c metabase
+-- Publication
+CREATE PUBLICATION "metabase" FOR ALL TABLES;
+SELECT PG_CREATE_REPLICATION_SLOTS('metabase', 'pgoutput');
+GRANT USAGE ON SCHEMA public TO repl;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO repl;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO repl;
+-- The owner
+GRANT USAGE ON SCHEMA public TO metabase;
+GRANT ALL ON SCHEMA public TO metabase;
+-- Readonly
 GRANT USAGE ON SCHEMA public TO metabase_readonly;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO metabase_readonly;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO metabase_readonly;
-
 -- Create trigger to alter table replica identity to full for tables that does not have primary key
 CREATE OR REPLACE FUNCTION f__set_replica_identity_full()
 RETURNS event_trigger AS $$
@@ -62,15 +73,6 @@ EXECUTE FUNCTION f__set_replica_identity_full();
 # Run Metabase locally
 
 ```sh
+cd metabase
 ./run.sh
-```
-
-# Run Metabase as system service
-
-```sh
-sudo ln -s /path/to/metabase.service /etc/systemd/system/metabase.service
-
-sudo systemctl daemon-reload
-sudo systemctl enable metabase.service
-sudo systemctl start metabase.service
 ```
