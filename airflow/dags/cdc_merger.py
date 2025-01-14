@@ -15,7 +15,7 @@ with DAG(
 ):
     tgs = []
     for conn_id in CDC__MERGER_TARGET_CONN_IDS:
-        with TaskGroup(conn_id['task_group_id']) as tg:
+        with TaskGroup(conn_id) as tg:
             task_merge = PythonOperator(
                 task_id='merge',
                 python_callable=merge,
