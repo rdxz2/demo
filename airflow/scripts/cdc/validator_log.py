@@ -60,10 +60,15 @@ def validate_log(conn_id: str):
     postgres_hook_db = PostgresHook(conn_id)
     db_conn = postgres_hook_db.get_conn()
     db_cursor = db_conn.cursor()
+    db_name = postgres_hook_db.get_connection(conn_id).schema
 
     # Get all tables
-    meta_cursor.execute('SELECT "schema", "table", "validate_cols" FROM public.merger WHERE "is_active" AND "database" = %s ORDER BY 1, 2, 3;', (conn_id, ))
+    meta_cursor.execute('SELECT "schema", "table", "validate_cols" FROM public.merger WHERE "is_active" AND "database" = %s ORDER BY 1, 2, 3;', (db_name, ))
     all_tables = meta_cursor.fetchall()
+
+    if not all_tables:
+        logger.warning('No table to validate')
+        return
 
     # Fetch validation cols dtypes
     logger.debug('Fetching validation cols dtypes...')
@@ -97,8 +102,9 @@ def validate_log(conn_id: str):
         db_conn.commit()
         result = {
             'ms': int(result[0]),
-            **{x: float(y) for x, y in zip(validate_cols, result[1:])}
+            **{x: float(y) if y is not None else None for x, y in zip(validate_cols, result[1:])}  # Handle None value
         }
+        logger.debug(f'Result: {result}')
         pg_results.append((schema, table, result))
 
     # BQ
@@ -116,11 +122,11 @@ def validate_log(conn_id: str):
             time.sleep(max_interval_s - diff)
 
         # Get BQ data
-        bq_table_fqn = f'{BQ_PROJECT_ID}.{CDC__BQ_LOG_DATASET_PREFIX}{conn_id}.{schema}__{table}'
+        bq_table_fqn = f'{BQ_PROJECT_ID}.{CDC__BQ_LOG_DATASET_PREFIX}{db_name}.{schema}__{table}'
         cols_str = ', '.join([f'`{col}`' for col in pg_result.keys()])
         validate_cols_representations = [get_number_representation_bq(validate_col, map__validate_cols__dtype[f'{schema}.{table}.{validate_col}']) for validate_col in pg_result.keys()]
         validate_cols_query_str = ', '.join([f'AVG({repr}) AS `{col}`' for col, repr in zip(pg_result.keys(), validate_cols_representations)])
-        bq_result = {x: float(y) for x, y in list(bigquery_hook.execute_query(dedent(
+        bq_result = {x: float(y) if y is not None else None for x, y in list(bigquery_hook.execute_query(dedent(
             f'''
                 WITH t1 AS (  -- Get the latest truncate operation
                     SELECT COALESCE(MAX(`__tx_commit_ts`), TIMESTAMP_MILLIS(0)) AS `latest_truncate_ts`
@@ -141,10 +147,15 @@ def validate_log(conn_id: str):
                 FROM t2
             '''
         )))[0].items()}
+        logger.debug(f'Result: {bq_result}')
 
         # Compare each validate cols
         for validate_col, pg_value in pg_result.items():
             bq_value = bq_result[validate_col]
+
+            if pg_value is None and bq_value is None:
+                logger.info(f'Column {schema}.{table}.{validate_col} has no value')
+                continue
 
             # If not matched, try to validate using lesser round precision
             is_matched = False
