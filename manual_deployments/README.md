@@ -197,7 +197,7 @@ sudo cat /etc/letsencrypt/live/metabase.rdxz2.site/privkey.pem
 
 ### Create external regional application load balancer
 
-**Create the load balancer**
+**_Create the load balancer_**
 
 ## Create OAuth2.0 Client ID
 
@@ -265,7 +265,7 @@ sudo cat /etc/letsencrypt/live/airflow.rdxz2.site/privkey.pem
 
 ### Create external regional application load balancer
 
-**Create the load balancer**
+**_Create the load balancer_**
 
 ## Create OAuth2.0 Client ID
 
