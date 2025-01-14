@@ -1,0 +1,13 @@
+[Unit]
+Description=Airflow scheduler
+After=postgresql.service
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/demo/airflow
+ExecStart=/bin/bash run-scheduler.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

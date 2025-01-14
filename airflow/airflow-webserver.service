@@ -1,0 +1,13 @@
+[Unit]
+Description=Airflow webserver service
+After=postgresql.service
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/demo/airflow
+ExecStart=/bin/bash run-webserver.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
