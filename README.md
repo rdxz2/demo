@@ -133,6 +133,14 @@ sudo cat /etc/letsencrypt/live/metabase.rdxz2.site/privkey.pem
 
 **Create the load balancer**
 
+## Create OAuth2.0 Client ID
+
+- Name: **Metabase**
+- Authorized JavaScript origins
+  - URIs1: **https://metabase.rdxz2.site**
+- Authorized redirect URIs
+  - URIs1: **https://metabase.rdxz2.site**
+
 ### Configure A record
 
 - Go to Hostinger > Select **metabase.rdxz2.site** > DNS / Nameservers, add a new record
@@ -183,6 +191,14 @@ sudo cat /etc/letsencrypt/live/airflow.rdxz2.site/privkey.pem
 ### Create external regional application load balancer
 
 **Create the load balancer**
+
+## Create OAuth2.0 Client ID
+
+- Name: **Metabase**
+- Authorized JavaScript origins
+  - URIs1: **https://airflow.rdxz2.site**
+- Authorized redirect URIs
+  - URIs1: **https://airflow.rdxz2.site/oauth-authorized/google**
 
 ### Configure A record
 
