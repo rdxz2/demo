@@ -1,4 +1,3 @@
-import os
 import time
 import logging
 
@@ -8,18 +7,9 @@ from typing import Any
 from utill.my_string import generate_random_string
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
-from config.settings import BQ_PROJECT_ID
+from config.settings import BQ_PROJECT_ID, CDC__STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S, CDC__STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S, CDC__BQ_LOG_DATASET_PREFIX, CDC__VALIDATION_INITIAL_ROUND_PRECISION
 from plugins.constants.conn import CONN_ID_PG_CDC
 from plugins.hooks.bigquery import BigQueryHook
-
-
-CDC__STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S = int(os.environ['STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S'])
-CDC__STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S = int(os.environ['STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S'])
-
-BQ_PROJECT_ID = os.environ['BQ_PROJECT_ID']
-BQ_LOG_DATASET_PREFIX = os.environ['BQ_LOG_DATASET_PREFIX']
-
-VALIDATION_INITIAL_ROUND_PRECISION = int(os.environ['VALIDATION_INITIAL_ROUND_PRECISION'])
 
 RANDOM_STRING = generate_random_string()
 
@@ -126,7 +116,7 @@ def validate_log(conn_id: str):
             time.sleep(max_interval_s - diff)
 
         # Get BQ data
-        bq_table_fqn = f'{BQ_PROJECT_ID}.{BQ_LOG_DATASET_PREFIX}{conn_id}.{schema}__{table}'
+        bq_table_fqn = f'{BQ_PROJECT_ID}.{CDC__BQ_LOG_DATASET_PREFIX}{conn_id}.{schema}__{table}'
         cols_str = ', '.join([f'`{col}`' for col in pg_result.keys()])
         validate_cols_representations = [get_number_representation_bq(validate_col, map__validate_cols__dtype[f'{schema}.{table}.{validate_col}']) for validate_col in pg_result.keys()]
         validate_cols_query_str = ', '.join([f'AVG({repr}) AS `{col}`' for col, repr in zip(pg_result.keys(), validate_cols_representations)])
@@ -158,7 +148,7 @@ def validate_log(conn_id: str):
 
             # If not matched, try to validate using lesser round precision
             is_matched = False
-            for i in range(VALIDATION_INITIAL_ROUND_PRECISION, -1, -1):
+            for i in range(CDC__VALIDATION_INITIAL_ROUND_PRECISION, -1, -1):
                 pg_value_rounded = round(pg_value, i)
                 bq_value_rounded = round(bq_value, i)
                 logger.debug(f'Validate {schema}.{table}.{validate_col} -- PG: {pg_value_rounded} -- BQ: {bq_value_rounded} -- Decimal precision: {i}')
