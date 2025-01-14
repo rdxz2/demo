@@ -30,11 +30,40 @@ GRANT ALL PRIVILEGES ON DATABASE airflow TO airflow;
 GRANT ALL ON SCHEMA public TO airflow;
 ```
 
-# Running airflow
+# Run Airflow locally
 
 ```sh
-ln -s /home/ubuntu/repos/xz2/demo/airflow/dags /home/ubuntu/airflow
-ln -s /home/ubuntu/repos/xz2/demo/airflow/plugins /home/ubuntu/airflow
+airflow scheduler
+```
 
+```sh
+airflow webserver
+```
+
+Create user
+
+```sh
 airflow users create --username admin --firstname Admin --lastname Admin --role Admin --email admin@rdxz2.site
+```
+
+# Run Airflow as system service
+
+Web server
+
+```sh
+sudo ln -s /path/to/airflow-webserver.service /etc/systemd/system/airflow-webserver.service
+
+sudo systemctl daemon-reload
+sudo systemctl enable airflow-webserver.service
+sudo systemctl start airflow-webserver.service
+```
+
+Scheduler
+
+```sh
+sudo ln -s /path/to/airflow-scheduler.service /etc/systemd/system/airflow-scheduler.service
+
+sudo systemctl daemon-reload
+sudo systemctl enable airflow-scheduler.service
+sudo systemctl start airflow-scheduler.service
 ```

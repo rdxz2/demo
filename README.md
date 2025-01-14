@@ -147,7 +147,7 @@ sudo crontab -e
 0 0 * * * certbot renew --quiet
 ```
 
-## Prefect
+## Airflow
 
 ### Install SSL certificate
 
@@ -155,20 +155,20 @@ sudo crontab -e
 sudo certbot certonly --manual --preferred-challenges dns
 ```
 
-When asked for site, type **prefect.rdxz2.site**, it will generate a token, copy it
+When asked for site, type **airflow.rdxz2.site**, it will generate a token, copy it
 
-- Go to Hostinger > Select **prefect.rdxz2.site** > DNS / Nameservers, add a new record
+- Go to Hostinger > Select **airflow.rdxz2.site** > DNS / Nameservers, add a new record
   - Type: **TXT**
   - Name: **\_acme-challenge**
   - Content: **_Paste the token_**
-- Go to https://dnschecker.org/, search for **\_acme-challenge.prefect.rdxz2.site** using type **TXT** -> should display checklist along with the provided token
+- Go to https://dnschecker.org/, search for **\_acme-challenge.airflow.rdxz2.site** using type **TXT** -> should display checklist along with the provided token
 - Go back to the terminal, press ENTER to finalize
 
 ```sh
-sudo cat /etc/letsencrypt/live/prefect.rdxz2.site/fullchain.pem
+sudo cat /etc/letsencrypt/live/airflow.rdxz2.site/fullchain.pem
 # Copy the value into load balancer configuration: Certificate
 
-sudo cat /etc/letsencrypt/live/prefect.rdxz2.site/privkey.pem
+sudo cat /etc/letsencrypt/live/airflow.rdxz2.site/privkey.pem
 # Copy the value into load balancer configuration: Private key
 ```
 
@@ -178,12 +178,12 @@ sudo cat /etc/letsencrypt/live/prefect.rdxz2.site/privkey.pem
 
 ### Configure A record
 
-- Go to Hostinger > Select **prefect.rdxz2.site** > DNS / Nameservers, add a new record
+- Go to Hostinger > Select **airflow.rdxz2.site** > DNS / Nameservers, add a new record
   - Type: **A**
-  - Name: **prefect**
+  - Name: **airflow**
   - Content: **_Paste load balancer IP address_**
-- Go to https://dnschecker.org/, search for **prefect.rdxz2.site** using type **A** -> should display checklist
+- Go to https://dnschecker.org/, search for **airflow.rdxz2.site** using type **A** -> should display checklist
 
-### Run prefect service
+### Run airflow service
 
-See: [Prefect section](./prefect/README.md)
+See: [Airflow section](./airflow/README.md)
