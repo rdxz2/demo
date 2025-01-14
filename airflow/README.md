@@ -33,15 +33,25 @@ GRANT ALL ON SCHEMA public TO airflow;
 
 # Run Airflow locally
 
+Init DB
+
+```sh
+airflow db init
+```
+
+Run scheduler
+
 ```sh
 airflow scheduler
 ```
+
+Run webserver
 
 ```sh
 airflow webserver
 ```
 
-Create user
+Create admin user
 
 ```sh
 airflow users create --username admin --firstname Admin --lastname Admin --role Admin --email admin@rdxz2.site
