@@ -1,0 +1,35 @@
+
+from enum import Enum
+
+
+class LoadStrategy(Enum):
+    OVERWRITE = 1
+    APPEND = 2
+
+
+class BigQueryDataType:
+    INT64 = 'INT64'
+    INTEGER = 'INTEGER'
+    FLOAT64 = 'FLOAT64'
+
+    DECIMAL = 'DECIMAL'
+
+    STRING = 'STRING'
+    JSON = 'JSON'
+
+    DATE = 'DATE'
+    TIME = 'TIME'
+    DATETIME = 'DATETIME'
+    TIMESTAMP = 'TIMESTAMP'
+
+    BOOL = 'BOOL'
+
+    ARRAY_INT64 = 'ARRAY<INT64>'
+    ARRAY_INTEGER = 'ARRAY<INTEGER>'
+    ARRAY_FLOAT64 = 'ARRAY<FLOAT64>'
+    ARRAY_STRING = 'ARRAY<STRING>'
+    ARRAY_JSON = 'ARRAY<JSON>'
+    ARRAY_DATE = 'ARRAY<DATE>'
+    ARRAY_DATETIME = 'ARRAY<DATETIME>'
+    ARRAY_TIMESTAMP = 'ARRAY<TIMESTAMP>'
+    ARRAY_BOOL = 'ARRAY<BOOL>'
