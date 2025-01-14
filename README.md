@@ -57,18 +57,18 @@ prefect server start
 
 ```sh
 sudo timedatectl set-timezone Asia/Jakarta
-```
 
-Clone git repository
-
-```sh
+# Register access key
 vim ~/.ssh/access-key-bitbucket  # Or generate the access key, need to register this access key into BitBucket
 
-# Register the access key
-eval $(ssh-agent -s)
-ssh-add ~/.ssh/access-key-bitbucket
-
-git clone git@bitbucket.org:xz2/demo.git
+cat > ~/.ssh/config <<EOF
+Host bitbucket.org
+HostName bitbucket.org
+User git
+IdentityFile ~/.ssh/access-key-bitbucket
+IdentitiesOnly yes
+EOF
+chmod 400 ~/.ssh/config
 ```
 
 Install python
@@ -83,7 +83,7 @@ Install certbot
 sudo apt install -y certbot
 ```
 
-## Install PostgreSQL
+Install PostgreSQL
 
 ```sh
 sudo apt install curl ca-certificates
@@ -94,6 +94,12 @@ sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresq
 
 sudo apt update -y
 sudo apt install -y postgresql-16
+```
+
+Clone git repository
+
+```sh
+git clone git@bitbucket.org:xz2/demo.git
 ```
 
 ## Metabase
@@ -148,6 +154,8 @@ sudo crontab -e
 ```
 
 ## Airflow
+
+Site name: **airflow.rdxz2.site**
 
 ### Install SSL certificate
 
