@@ -1,3 +1,3 @@
 source ~/venv/airflow/bin/activate
-source airflow.env
+source .env.airflow
 airflow webserver
