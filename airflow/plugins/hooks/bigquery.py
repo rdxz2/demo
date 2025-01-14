@@ -1,5 +1,6 @@
 
 import logging
+import humanize
 
 from google.cloud import bigquery
 from airflow.hooks.base import BaseHook
@@ -15,6 +16,32 @@ class BigQueryHook(BaseHook):
         super().__init__()
 
         self.bq_client = bigquery.Client.from_service_account_json(sa_filename)
+
+    def get_conn(self) -> bigquery.Client:
+        return self.bq_client
+
+    def close(self):
+        self.bq_client.close()
+
+    def execute_query(self, query: str, dry_run: bool = False) -> bigquery.QueryJob:
+        multistatement = type(query) == list
+        if multistatement:
+            query = '\n'.join([x if str(x).strip().endswith(';') else x + ';' for x in query if x])  # noqa
+        else:
+            query = query.strip()
+
+        logger.debug(f'🔎 Query:\n{query}')
+        query_job_config = bigquery.QueryJobConfig(dry_run=dry_run)
+        query_job = self.bq_client.query(query, job_config=query_job_config)
+        query_job.result()  # Wait for query execution
+
+        if not multistatement:
+            logger.debug(f'[Job ID] {query_job.job_id}, [Processed] {humanize.naturalsize(query_job.total_bytes_processed)}, [Billed] {humanize.naturalsize(query_job.total_bytes_billed)}, [Affected] {query_job.num_dml_affected_rows or 0} row(s)',)
+        else:
+            logger.debug(f'[Job ID] {query_job.job_id}')
+            [logger.debug(f'[Script ID] {job.job_id}, [Processed] {humanize.naturalsize(job.total_bytes_processed)}, [Billed] {humanize.naturalsize(job.total_bytes_billed)}, [Affected] {job.num_dml_affected_rows or 0} row(s)',) for job in self.bq_client.list_jobs(parent_job=query_job.job_id)]
+
+        return query_job
 
     def load_from_gcs(
         self,
