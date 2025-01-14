@@ -8,8 +8,7 @@ AIRFLOW_VERSION=2.10.4
 PYTHON_VERSION="$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
 CONSTRAINT_URL="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
 
-pip install "apache-airflow==${AIRFLOW_VERSION}" --constraint "${CONSTRAINT_URL}"
-pip install -r requirements.txt
+pip install "apache-airflow==${AIRFLOW_VERSION}" -r requirements.txt --constraint "${CONSTRAINT_URL}"
 ```
 
 **_Important! to install new package, use the constraint file_**
@@ -27,6 +26,8 @@ CREATE USER airflow WITH PASSWORD '12321' LOGIN;
 
 CREATE DATABASE airflow;
 GRANT ALL PRIVILEGES ON DATABASE airflow TO airflow;
+
+\c airflow
 GRANT ALL ON SCHEMA public TO airflow;
 ```
 
