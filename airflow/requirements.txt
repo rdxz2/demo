@@ -11,7 +11,7 @@ apache-airflow-providers-fab==1.5.1
 apache-airflow-providers-ftp==3.11.1
 apache-airflow-providers-http==4.13.3
 apache-airflow-providers-imap==3.7.0
-apache-airflow-providers-postgres==6.0.0
+apache-airflow-providers-postgres==5.14.0
 apache-airflow-providers-smtp==1.8.1
 apache-airflow-providers-sqlite==3.9.1
 apispec==6.8.0
