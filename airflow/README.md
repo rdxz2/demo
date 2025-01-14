@@ -31,13 +31,19 @@ GRANT ALL PRIVILEGES ON DATABASE airflow TO airflow;
 GRANT ALL ON SCHEMA public TO airflow;
 ```
 
-# Run Airflow locally
+# Airflow service setup
+
+```sh
+ln -s __REPO_DIR__/airflow/webserver_config.py __AIRFLOW_HOME__/
+```
 
 Init DB
 
 ```sh
 airflow db init
 ```
+
+# Run Airflow locally
 
 Run scheduler
 
@@ -51,10 +57,10 @@ Run webserver
 airflow webserver
 ```
 
-Create admin user
+Create admin user locally (DB auth)
 
 ```sh
-airflow users create --username admin --firstname Admin --lastname Admin --role Admin --email admin@rdxz2.site
+airflow users create --username admin --firstname Admin --lastname Admin --role Admin --email admin@somesite.site
 ```
 
 # Run Airflow as system service
@@ -62,7 +68,7 @@ airflow users create --username admin --firstname Admin --lastname Admin --role 
 Web server
 
 ```sh
-sudo ln -s /path/to/airflow-webserver.service /etc/systemd/system/airflow-webserver.service
+sudo ln -s __REPO_DIR__/airflow/airflow-webserver.service /etc/systemd/system/airflow-webserver.service
 
 sudo systemctl daemon-reload
 sudo systemctl enable airflow-webserver.service
@@ -72,9 +78,15 @@ sudo systemctl start airflow-webserver.service
 Scheduler
 
 ```sh
-sudo ln -s /path/to/airflow-scheduler.service /etc/systemd/system/airflow-scheduler.service
+sudo ln -s __REPO_DIR__/airflow/airflow-scheduler.service /etc/systemd/system/airflow-scheduler.service
 
 sudo systemctl daemon-reload
 sudo systemctl enable airflow-scheduler.service
 sudo systemctl start airflow-scheduler.service
+```
+
+# Assign admin role for new user login
+
+```sh
+airflow users add-role --email __EMAIL__ --role Admin
 ```
