@@ -76,22 +76,3 @@ deployments:
         timezone: Asia/Jakarta
         day_or: true
         active: true
-  - name: deployment__cdc__cdc_merger
-    version:
-    tags:
-      - cdc
-      - bq
-    concurrency_limit:
-    description:
-    entrypoint: cdc/cdc_merger.py:cdc__cdc_merger
-    parameters: {}
-    work_pool:
-      name: work-pool-1
-      work_queue_name:
-      job_variables: {}
-    enforce_parameter_schema: true
-    schedules:
-      - cron: 0 1 * * *
-        timezone: UTC
-        day_or: true
-        active: true

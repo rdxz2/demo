@@ -43,10 +43,14 @@ prefect worker start --pool __WORK_POOL_NAME__
 
 ## Deploying a flow
 
-First, edit the [deployment file](./prefect.yaml), then
+Based on the [deployment file](./prefect.yaml)
 
 ```sh
-prefect deploy --prefect-file prefect.yaml --name __FLOW_NAME__
+# All flows
+prefect deploy --all
+
+# Or a single flow
+prefect deploy --name __FLOW_NAME__
 ```
 
 # Run Prefect as system service
