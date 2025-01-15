@@ -1,4 +1,6 @@
-# Deployment
+# Ansible deployment
+
+# Manual deployment
 
 ## General setup
 
