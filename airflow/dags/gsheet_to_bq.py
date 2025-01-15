@@ -12,7 +12,7 @@ from scripts.gsheet_transformer import transform_daily_cc_usage
 with DAG(
     dag_id='gsheet_to_bq',
     start_date=datetime(2025, 1, 1),
-    schedule='0 6 * * *',
+    schedule='0 7-22 * * *',
     catchup=False,
 ):
     start = EmptyOperator(task_id='start')
