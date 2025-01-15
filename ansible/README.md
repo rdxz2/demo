@@ -1,23 +1,69 @@
 # Ansible deployment
 
-# Manual deployment
+Do this in the deployer instance (can be the target instance too)
 
-## General setup
+## First time setup
 
 ```sh
-sudo timedatectl set-timezone Asia/Jakarta
-
-# Register access key
-vim ~/.ssh/access-key-bitbucket  # Or generate the access key, need to register this access key into BitBucket
-
+# Enable cloning git repository from BitBucket: generate and copy the public key to the repository access key
+# Enable SSH to the targer server: generate and copy the public key to the target server
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
 cat > ~/.ssh/config <<EOF
 Host bitbucket.org
 HostName bitbucket.org
 User git
-IdentityFile ~/.ssh/access-key-bitbucket
+IdentityFile ~/.ssh/id_rsa
 IdentitiesOnly yes
 EOF
-chmod 400 ~/.ssh/config
+chmod 400 ~/.ssh/id_rsa ~/.ssh/config
+
+# Install python
+sudo apt install -y python3.12 python3.12-venv
+mkdir ~/venv
+
+# Clone git repository
+git clone git@bitbucket.org:xz2/demo.git
+
+# Copy the ansible vault password
+mkdir ~/secret
+vim ~/secret/ansible_vault_password
+
+# Install ansible
+python3.12 -m venv ~/venv/ansible
+source ~/venv/ansible/bin/activate
+pip install -r demo/ansible/requirements.txt
+
+# Copy required service account file
+```
+
+## Warning: do not automate databse setup, it will potentially expose the database to a risk!
+
+See the manual deployment for PostgreSQL [below](#postgresql)
+
+## Deploy
+
+```sh
+cd demo/ansible
+ansible-playbook -i inventory/hosts.ini play.yaml --vault-passwpord-file=~/secret/ansible_vault_password
+```
+
+# Manual deployment
+
+## General setup
+
+Do this directly in the target instance
+
+```sh
+# Enable cloning git repository from BitBucket: generate and copy the public key to the repository access key
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
+cat > ~/.ssh/config <<EOF
+Host bitbucket.org
+HostName bitbucket.org
+User git
+IdentityFile ~/.ssh/id_rsa
+IdentitiesOnly yes
+EOF
+chmod 400 ~/.ssh/id_rsa ~/.ssh/config
 
 # Output file for cdc logs
 mkdir -p cdc/output cdc/dockerlogs
@@ -63,35 +109,18 @@ EOF
 ## PostgreSQL
 
 ```sh
-sudo su - postgres -c psql
-```
-
-```sql
-ALTER SYSTEM SET wal_level = logical;
-SHOW wal_level;
-```
-
-```sh
+sudo vim /etc/postgresql/16/main/postgresql.conf  # Configure postgresql settings
+sudo vim /etc/postgresql/16/main/pg_hba.conf  # Configure authentication settings
 sudo systemctl restart postgresql.service
+
 sudo su - postgres -c psql
 ```
 
 ```sql
 CREATE USER airflow WITH PASSWORD '12321' LOGIN;
 CREATE USER airflow_readonly WITH PASSWORD '12321' LOGIN;
-CREATE USER metabase WITH PASSWORD '12321' LOGIN;
-CREATE USER metabase_readonly WITH PASSWORD '12321' LOGIN;
-CREATE USER repl WITH PASSWORD '12321' LOGIN REPLICATION;
-CREATE USER repl_readonly WITH PASSWORD '12321' LOGIN;
-
 CREATE DATABASE airflow;
-CREATE DATABASE metabase;
-CREATE DATABASE cdc;
-
 GRANT ALL PRIVILEGES ON DATABASE airflow TO airflow;
-GRANT ALL PRIVILEGES ON DATABASE metabase TO metabase;
-GRANT ALL PRIVILEGES ON DATABASE cdc TO repl;
-
 \c airflow
 -- Publication
 CREATE PUBLICATION "airflow" FOR ALL TABLES;
@@ -107,6 +136,10 @@ GRANT USAGE ON SCHEMA public TO airflow_readonly;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO airflow_readonly;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO airflow_readonly;
 
+CREATE USER metabase WITH PASSWORD '12321' LOGIN;
+CREATE USER metabase_readonly WITH PASSWORD '12321' LOGIN;
+CREATE DATABASE metabase;
+GRANT ALL PRIVILEGES ON DATABASE metabase TO metabase;
 \c metabase
 -- Publication
 CREATE PUBLICATION "metabase" FOR ALL TABLES;
@@ -152,6 +185,10 @@ ON ddl_command_end
 WHEN TAG IN ('CREATE TABLE')
 EXECUTE FUNCTION f__set_replica_identity_full();
 
+CREATE USER repl WITH PASSWORD '12321' LOGIN REPLICATION;
+CREATE USER repl_readonly WITH PASSWORD '12321' LOGIN;
+CREATE DATABASE cdc;
+GRANT ALL PRIVILEGES ON DATABASE cdc TO repl;
 \c cdc
 -- Master
 GRANT USAGE ON SCHEMA public TO repl;

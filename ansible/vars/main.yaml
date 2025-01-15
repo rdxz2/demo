@@ -1,0 +1,5 @@
+python_version: 3.12
+venv_dir: ~/venv
+repo_dir: ~/demo
+
+sa_dir: ~/sa

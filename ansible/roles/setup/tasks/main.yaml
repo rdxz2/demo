@@ -1,0 +1,22 @@
+- name: Update apt cache
+  apt:
+    update_cache: yes
+
+- name: Install required system packages
+  apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - "python{{ python_version }}"
+    - "python{{ python_version }}-venv"
+
+- name: Clone this repository
+  git:
+    repo: git@bitbucket.org:xz2/demo.git
+    dest: "{{ repo_dir }}"
+    version: master
+
+- name: Ensure venv directory exists
+  file:
+    path: "{{ venv_dir }}"
+    state: directory

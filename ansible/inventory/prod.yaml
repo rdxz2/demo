@@ -1,0 +1,17 @@
+all:
+  hosts:
+    airflow:
+      ansible_host: 10.0.0.5
+      ansible_user: ubuntu
+      ansible_ssh_private_key_file: ~/.ssh/id_rsa
+
+      airflow_version: 2.10.4
+      airflow_webserver_url: https://airflow.rdxz2.site
+      airflow_home_dir: ~/airflow
+      airflow_venv_dir: "{{ venv_dir }}/airflow"
+      airflow_repo_dir: "{{ repo_dir }}/airflow"
+
+      db_cdc_host: localhost
+      db_cdc_port: 5432
+      db_cdc_user: airflow
+      db_cdc_name: cdc
