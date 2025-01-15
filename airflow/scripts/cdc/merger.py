@@ -162,11 +162,11 @@ class Merger:
                 WHERE `__tx_commit_ts` > (SELECT `latest_truncate_ts` FROM t1)  -- Ignore all data before the latest truncate operation
                     AND `__tx_commit_ts` > TIMESTAMP_MICROS({last_cutoff_ts_us})
                     AND `__tx_commit_ts` <= TIMESTAMP_MICROS({self.cutoff_ts_us})
-                QUALIFY ROW_NUMBER() OVER(PARTITION BY {pks_str} ORDER BY `__m_ord` DESC) = 1
-                    AND `__m_op` IN ('I', 'U', 'D')
+                    AND `__m_op` IN ('I', 'U', 'D')  -- Only consider insert, update (after), delete operations
+                QUALIFY ROW_NUMBER() OVER(PARTITION BY {pks_str} ORDER BY `__tx_commit_ts` DESC, `__tx_id` DESC, `__m_ord` DESC) = 1
             ) S
             ON {on_str}
-            WHEN NOT MATCHED AND S.`__m_op` = 'I' THEN INSERT ({cols_str}) VALUES ({cols_str})
+            WHEN NOT MATCHED THEN INSERT ({cols_str}) VALUES ({cols_str})
             WHEN MATCHED AND S.`__m_op` = 'D' THEN DELETE
             WHEN MATCHED AND S.`__m_op` = 'U' THEN UPDATE SET {cols_update_str}
             '''
