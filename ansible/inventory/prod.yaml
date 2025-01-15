@@ -1,6 +1,20 @@
 all:
+  # Global variables in environment level
+  vars:
+    timezone: Asia/Jakarta
+
+    gcs_bucket: xz2-demo
+
+    bq_project_id: xz2-demo
+    bq_dataset_location: asia-southeast2
+    bq_dataset_id_datalake: datalake
+
+    cdc_merger_target_conn_ids:
+      - pg_metabase
+    cdc_bq_log_dataset_prefix: cdclog__
+
   hosts:
-    airflow:
+    airflows:
       ansible_host: 10.0.0.5
       ansible_user: ubuntu
       ansible_ssh_private_key_file: ~/.ssh/id_rsa
@@ -11,7 +25,17 @@ all:
       airflow_venv_dir: "{{ venv_dir }}/airflow"
       airflow_repo_dir: "{{ repo_dir }}/airflow"
 
-      db_cdc_host: localhost
+      db_airflow_host: 10.0.0.5
+      db_airflow_port: 5432
+      db_airflow_user: airflow
+      db_airflow_name: airflow
+
+      db_cdc_host: 10.0.0.5
       db_cdc_port: 5432
       db_cdc_user: airflow
       db_cdc_name: cdc
+
+      db_metabase_host: 10.0.0.5
+      db_metabase_port: 5432
+      db_metabase_user: airflow
+      db_metabase_name: cdc

@@ -1,0 +1,13 @@
+- name: Basic setup - Airflow
+  hosts: airflows
+  roles:
+    - setup
+  tags:
+    - airflow_setup
+
+- name: Installation - Airflow
+  hosts: airflows
+  roles:
+    - airflow
+  tags:
+    - airflow_install
