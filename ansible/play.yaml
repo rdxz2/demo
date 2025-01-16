@@ -1,4 +1,4 @@
-- name: Basic setup - Airflow
+- name: Airflow - Basic setup
   hosts: airflows
   vars_files:
     - vars/main.yaml
@@ -7,11 +7,22 @@
   tags:
     - airflow_setup
 
-- name: Installation - Airflow
+- name: Airflow - Installation
   hosts: airflows
   vars_files:
     - vars/main.yaml
+    - vars/secrets.yaml
   roles:
-    - airflow
+    - airflow_install
   tags:
     - airflow_install
+
+- name: Airflow - Configuration
+  hosts: airflows
+  vars_files:
+    - vars/main.yaml
+    - vars/secrets.yaml
+  roles:
+    - airflow_configure
+  tags:
+    - airflow_configure

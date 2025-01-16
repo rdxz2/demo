@@ -1,0 +1,25 @@
+# Installation
+
+- name: Ensure Airflow home directory exists
+  file:
+    path: "{{ airflow_home_dir }}"
+    state: directory
+
+- name: Create virtual environment
+  command:
+    cmd: "python3.12 -m venv {{ airflow_venv_dir }}"
+  args:
+    creates: "{{ airflow_venv_dir }}/bin/activate"
+
+- name: Install Airflow
+  pip:
+    executable: "{{ airflow_venv_dir }}/bin/pip"
+    name:
+      - apache-airflow=={{ airflow_version }}
+    state: present
+    extra_args: "--upgrade --constraint https://raw.githubusercontent.com/apache/airflow/constraints-{{ airflow_version }}/constraints-{{ python_version }}.txt"
+
+- name: Install remaining pip packages
+  pip:
+    executable: "{{ airflow_venv_dir }}/bin/pip"
+    requirements: "{{ airflow_repo_dir }}/requirements.txt"
