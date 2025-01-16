@@ -1,2 +1,4 @@
 .ansible-retry
 .ansible.log
+
+play.retry

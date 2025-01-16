@@ -1,8 +1,10 @@
-python_version: 3.12
-venv_dir: ~/venv
-repo_dir: ~/demo
+home_dir: /home/ubuntu
 
-sa_dir: ~/sa
+python_version: 3.12
+venv_dir: "{{ home_dir }}/venv"
+repo_dir: "{{ home_dir }}/demo"
+
+sa_dir: "{{ home_dir }}/sa"
 sa_airflow_key: sa-xz2-demo-airflow
 sa_airflow_filename: "{{ sa_dir }}/sa-xz2-demo-airflow.json"
 sa_cdc_key: sa-xz2-demo-cdc
