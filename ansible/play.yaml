@@ -1,5 +1,7 @@
 - name: Basic setup - Airflow
   hosts: airflows
+  vars_files:
+    - vars/main.yaml
   roles:
     - setup
   tags:
@@ -7,6 +9,8 @@
 
 - name: Installation - Airflow
   hosts: airflows
+  vars_files:
+    - vars/main.yaml
   roles:
     - airflow
   tags:

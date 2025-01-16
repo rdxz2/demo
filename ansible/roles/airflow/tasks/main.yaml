@@ -60,7 +60,7 @@
     dest: "{{ airflow_home_dir }}/.env"
 
 - name: Fetch service account file
-  google.cloud.gcp_secret_manager_secret:
+  google.cloud.gcp_secret_manager:
     name: "{{ airflow_gcp_secret }}"
     project: "{{ gcp_project_id }}"
     version: latest

@@ -46,8 +46,8 @@ See the manual deployment for PostgreSQL [below](#postgresql)
 ## Deploy
 
 ```sh
-cd demo/ansible
-ansible-playbook -i inventory/hosts.ini play.yaml --vault-passwpord-file=~/secret/ansible_vault_password
+cd ~/demo/ansible
+ansible-playbook -i inventory/prod.yaml play.yaml --vault-password-file=~/secret/ansible_vault_password
 ```
 
 # Manual deployment
