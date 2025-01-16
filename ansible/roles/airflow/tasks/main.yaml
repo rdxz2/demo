@@ -52,7 +52,7 @@
   template:
     src: .env.airflow.j2
     dest: "{{ airflow_home_dir }}/.env.airflow"
-    mode: 0644
+    mode: 0700
 
 - name: Copy application dotenv file
   template:
