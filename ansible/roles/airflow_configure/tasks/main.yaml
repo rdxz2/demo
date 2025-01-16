@@ -51,7 +51,7 @@
 
 - name: Migrate database
   command:
-    cmd: "source {{ airflow_home_dir }}/.env.airflow && {{ airflow_venv_dir }}/bin/airflow db migrate"
+    cmd: "source {{ airflow_repo_dir }}/.env.airflow && {{ airflow_venv_dir }}/bin/airflow db migrate"
 
 - name: Start the webserver
   systemd:
