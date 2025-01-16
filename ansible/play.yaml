@@ -5,7 +5,7 @@
   roles:
     - setup
   tags:
-    - airflow_setup
+    - airflow_basic
 
 - name: Airflow - Installation
   hosts: airflows

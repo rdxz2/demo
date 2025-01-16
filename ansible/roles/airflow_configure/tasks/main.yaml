@@ -25,13 +25,13 @@
 - name: Copy Airflow environment variable file
   template:
     src: .env.airflow.j2
-    dest: "{{ airflow_home_dir }}/.env.airflow"
+    dest: "{{ airflow_repo_dir }}/.env.airflow"
     mode: 0700
 
 - name: Copy application dotenv file
   template:
     src: .env.j2
-    dest: "{{ airflow_home_dir }}/.env"
+    dest: "{{ airflow_repo_dir }}/.env"
 
 - name: Fetch service account file
   google.cloud.gcp_secret_manager:
