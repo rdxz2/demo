@@ -35,7 +35,8 @@
 
 - name: Fetch service account file
   google.cloud.gcp_secret_manager:
-    name: "{{ airflow_gcp_secret }}"
+    auth_kind: machineaccount
+    name: "{{ sa_airflow_key }}"
     project: "{{ gcp_project_id }}"
     version: latest
     state: present
