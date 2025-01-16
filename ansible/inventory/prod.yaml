@@ -3,6 +3,8 @@ all:
   vars:
     timezone: Asia/Jakarta
 
+    gcs_project_id: xz2-demo
+
     gcs_bucket: xz2-demo
 
     bq_project_id: xz2-demo

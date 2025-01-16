@@ -59,6 +59,19 @@
     src: .env.j2
     dest: "{{ airflow_home_dir }}/.env"
 
+- name: Fetch service account file
+  google.cloud.gcp_secret_manager_secret:
+    name: "{{ airflow_gcp_secret }}"
+    project: "{{ gcp_project_id }}"
+    version: latest
+    state: present
+  register: sa_airflow
+
+- name: Copy service account file
+  copy:
+    content: "{{ sa_airflow.payload.data | b64decode }}"
+    dest: "{{ sa_airflow_filename }}"
+
 # Services
 
 - name: Migrate database

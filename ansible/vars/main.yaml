@@ -3,3 +3,7 @@ venv_dir: ~/venv
 repo_dir: ~/demo
 
 sa_dir: ~/sa
+sa_airflow_key: sa-xz2-demo-airflow
+sa_airflow_filename: "{{ sa_dir }}/sa-xz2-demo-airflow.json"
+sa_cdc_key: sa-xz2-demo-cdc
+sa_cdc_filename: "{{ sa_dir }}/sa-xz2-demo-cdc.json"

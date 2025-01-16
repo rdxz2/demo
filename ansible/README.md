@@ -32,9 +32,12 @@ vim ~/secret/ansible_vault_password
 python3.12 -m venv ~/venv/ansible
 source ~/venv/ansible/bin/activate
 pip install -r demo/ansible/requirements.txt
-
-# Copy required service account file
 ```
+
+Add the required service account file into Google Secret Manager
+
+- SA for **Airflow**
+- SA fir **cdc**
 
 ## Warning: do not automate databse setup, it will potentially expose the database to a risk!
 
