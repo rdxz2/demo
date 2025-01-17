@@ -40,4 +40,4 @@ all:
       db_metabase_host: 10.0.0.5
       db_metabase_port: 5432
       db_metabase_user: airflow
-      db_metabase_name: cdc
+      db_metabase_name: metabase
