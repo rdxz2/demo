@@ -121,9 +121,16 @@ sudo su - postgres -c psql
 
 ```sql
 CREATE USER airflow WITH PASSWORD '12321' LOGIN;
-CREATE USER airflow_readonly WITH PASSWORD '12321' LOGIN;
+CREATE USER metabase WITH PASSWORD '12321' LOGIN;
+CREATE USER repl WITH PASSWORD '12321' LOGIN REPLICATION;
+
 CREATE DATABASE airflow;
 GRANT ALL PRIVILEGES ON DATABASE airflow TO airflow;
+CREATE DATABASE metabase;
+GRANT ALL PRIVILEGES ON DATABASE metabase TO metabase;
+CREATE DATABASE cdc;
+GRANT ALL PRIVILEGES ON DATABASE cdc TO airflow;
+
 \c airflow
 -- Publication
 CREATE PUBLICATION "airflow" FOR ALL TABLES;
@@ -134,15 +141,8 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO repl;
 -- The owner
 GRANT USAGE ON SCHEMA public TO airflow;
 GRANT ALL ON SCHEMA public TO airflow;
--- Readonly
-GRANT USAGE ON SCHEMA public TO airflow_readonly;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO airflow_readonly;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO airflow_readonly;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO airflow;
 
-CREATE USER metabase WITH PASSWORD '12321' LOGIN;
-CREATE USER metabase_readonly WITH PASSWORD '12321' LOGIN;
-CREATE DATABASE metabase;
-GRANT ALL PRIVILEGES ON DATABASE metabase TO metabase;
 \c metabase
 -- Publication
 CREATE PUBLICATION "metabase" FOR ALL TABLES;
@@ -153,10 +153,11 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO repl;
 -- The owner
 GRANT USAGE ON SCHEMA public TO metabase;
 GRANT ALL ON SCHEMA public TO metabase;
--- Readonly
-GRANT USAGE ON SCHEMA public TO metabase_readonly;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO metabase_readonly;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO metabase_readonly;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO metabase;
+-- Readonlies
+GRANT USAGE ON SCHEMA public TO airflow;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO airflow;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO airflow;
 -- Create trigger to alter table replica identity to full for tables that does not have primary key
 CREATE OR REPLACE FUNCTION f__set_replica_identity_full()
 RETURNS event_trigger AS $$
@@ -188,18 +189,11 @@ ON ddl_command_end
 WHEN TAG IN ('CREATE TABLE')
 EXECUTE FUNCTION f__set_replica_identity_full();
 
-CREATE USER repl WITH PASSWORD '12321' LOGIN REPLICATION;
-CREATE USER repl_readonly WITH PASSWORD '12321' LOGIN;
-CREATE DATABASE cdc;
-GRANT ALL PRIVILEGES ON DATABASE cdc TO repl;
 \c cdc
--- Master
-GRANT USAGE ON SCHEMA public TO repl;
-GRANT ALL ON SCHEMA public TO repl;
--- Readonly
-GRANT USAGE ON SCHEMA public TO repl_readonly;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO repl_readonly;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO repl_readonly;
+-- The owner
+GRANT USAGE ON SCHEMA public TO airflow;
+GRANT ALL ON SCHEMA public TO airflow;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO airflow;
 ```
 
 ## CDC docker image
@@ -213,6 +207,8 @@ docker build -t xz2-demo-cdc-uploader:__VERSION__ -t xz2-demo-cdc-uploader:lates
 ## Metabase
 
 Site name: **metabase.rdxz2.site**
+
+Can do this steps if using a managed load balancer, or just use [this](../nginx/README.md#set-up-nginx-for-metabase)
 
 ### Install SSL certificate
 
@@ -241,7 +237,7 @@ sudo cat /etc/letsencrypt/live/metabase.rdxz2.site/privkey.pem
 
 **_Create the load balancer_**
 
-## Create OAuth2.0 Client ID
+### Create OAuth2.0 Client ID
 
 - Name: **Metabase**
 - Authorized JavaScript origins
@@ -282,6 +278,8 @@ sudo systemctl start metabase.service
 
 Site name: **airflow.rdxz2.site**
 
+Can do this steps if using a managed load balancer, or just use [this](../nginx/README.md#set-up-nginx-for-airflow)
+
 ### Install SSL certificate
 
 ```sh
@@ -309,7 +307,7 @@ sudo cat /etc/letsencrypt/live/airflow.rdxz2.site/privkey.pem
 
 **_Create the load balancer_**
 
-## Create OAuth2.0 Client ID
+### Create OAuth2.0 Client ID
 
 - Name: **Metabase**
 - Authorized JavaScript origins
