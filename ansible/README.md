@@ -47,8 +47,7 @@ See the manual deployment for PostgreSQL [below](#postgresql)
 
 ```sh
 cd ~/demo/ansible
-ansible-playbook -i inventory/prod.yaml play.yaml --vault-password-file=~/secret/ansible_vault_password -e ansible_python_interpreter=~/venv/ansible/bin/python
-# The -e ansible_python_interpreter=~venv/ansible/bin/python is to overcome google-auth library not detected when running google.cloud modules
+ansible-playbook -i inventory/prod.yaml play.yaml --vault-password-file=~/secret/ansible_vault_password
 ```
 
 # Manual deployment

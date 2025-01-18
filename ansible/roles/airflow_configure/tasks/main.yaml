@@ -40,6 +40,7 @@
     project: "{{ gcp_project_id }}"
     version: latest
     state: present
+  delegate_to: localhost
   register: sa_airflow
 
 - name: Copy service account file
@@ -50,17 +51,20 @@
 # Services
 
 - name: Migrate database
-  command:
-    cmd: "source {{ airflow_repo_dir }}/.env.airflow && {{ airflow_venv_dir }}/bin/airflow db migrate"
+  shell: "source {{ airflow_repo_dir }}/.env.airflow && {{ airflow_venv_dir }}/bin/airflow db migrate"
+  args:
+    executable: /bin/bash
 
 - name: Start the webserver
+  become: true
   systemd:
     name: airflow-webserver.service
-    state: started
+    state: restarted
     enabled: yes
 
 - name: Start the scheduler
+  become: true
   systemd:
     name: airflow-scheduler.service
-    state: started
+    state: restarted
     enabled: yes
