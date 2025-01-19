@@ -1,3 +1,5 @@
+# Global variables accross all environments
+
 home_dir: /home/ubuntu
 
 python_version: 3.12

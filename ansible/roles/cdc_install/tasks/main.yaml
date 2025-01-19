@@ -1,0 +1,17 @@
+# Installation
+
+- name: Ensure CDC home directory exists
+  file:
+    path: "{{ cdc_home_dir }}"
+    state: directory
+
+- name: Create virtual environment
+  command:
+    cmd: "python3.12 -m venv {{ cdc_venv_dir }}"
+  args:
+    creates: "{{ cdc_venv_dir }}/bin/activate"
+
+- name: Install pip packages
+  pip:
+    executable: "{{ cdc_venv_dir }}/bin/pip"
+    requirements: "{{ cdc_repo_dir }}/requirements.txt"

@@ -4,6 +4,7 @@ all:
     timezone: Asia/Jakarta
 
     gcp_project_id: xz2-demo
+    gcp_region: asia-southeast2
 
     gcs_bucket: xz2-demo
 
@@ -11,8 +12,6 @@ all:
     bq_dataset_location: asia-southeast2
     bq_dataset_id_datalake: datalake
 
-    cdc_merger_target_conn_ids:
-      - pg_metabase
     cdc_bq_log_dataset_prefix: cdclog__
 
   hosts:
@@ -40,3 +39,23 @@ all:
       db_metabase_port: 5432
       db_metabase_user: airflow
       db_metabase_name: metabase
+
+      cdc_merger_target_conn_ids: # List of streamed databases to be merged
+        - pg_metabase
+
+    cdcs:
+      ansible_host: 10.0.0.5
+      ansible_user: ubuntu
+
+      cdc_home_dir: "{{ home_dir }}/cdc"
+      cdc_venv_dir: "{{ venv_dir }}/cdc"
+      cdc_repo_dir: "{{ repo_dir }}/cdc"
+
+      cdc_targets:
+        metabase:
+          cdc_db_host: 10.0.0.5
+          cdc_db_port: 5432
+          cdc_db_user: repl
+          cdc_db_name: metabase
+          cdc_publ_name: metabase
+          cdc_slot_name: metabase

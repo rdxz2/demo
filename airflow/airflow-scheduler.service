@@ -1,6 +1,5 @@
 [Unit]
 Description=Airflow scheduler
-After=postgresql.service
 
 [Service]
 User=ubuntu

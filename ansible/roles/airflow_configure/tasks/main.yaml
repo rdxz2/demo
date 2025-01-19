@@ -1,25 +1,3 @@
-# Configuration files
-
-- name: Link webserver configuration file into Airflow home directory
-  file:
-    src: "{{ airflow_repo_dir }}/webserver_config.py"
-    dest: "{{ airflow_home_dir }}/webserver_config.py"
-    state: link
-
-- name: Link webserver file into systemd
-  become: true
-  file:
-    src: "{{ airflow_repo_dir }}/airflow-webserver.service"
-    dest: /etc/systemd/system/airflow-webserver.service
-    state: link
-
-- name: Link scheduler file into systemd
-  become: true
-  file:
-    src: "{{ airflow_repo_dir }}/airflow-scheduler.service"
-    dest: /etc/systemd/system/airflow-scheduler.service
-    state: link
-
 # Env files
 
 - name: Copy Airflow environment variable file
@@ -47,6 +25,28 @@
   copy:
     content: "{{ sa_airflow.payload.data | b64decode }}"
     dest: "{{ sa_airflow_filename }}"
+
+# Configuration files
+
+- name: Link webserver configuration file into Airflow home directory
+  file:
+    src: "{{ airflow_repo_dir }}/webserver_config.py"
+    dest: "{{ airflow_home_dir }}/webserver_config.py"
+    state: link
+
+- name: Link webserver file into systemd
+  become: true
+  file:
+    src: "{{ airflow_repo_dir }}/airflow-webserver.service"
+    dest: /etc/systemd/system/airflow-webserver.service
+    state: link
+
+- name: Link scheduler file into systemd
+  become: true
+  file:
+    src: "{{ airflow_repo_dir }}/airflow-scheduler.service"
+    dest: /etc/systemd/system/airflow-scheduler.service
+    state: link
 
 # Services
 

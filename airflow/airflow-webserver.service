@@ -1,6 +1,5 @@
 [Unit]
 Description=Airflow webserver service
-After=postgresql.service
 
 [Service]
 User=ubuntu

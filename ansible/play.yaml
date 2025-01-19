@@ -26,3 +26,32 @@
     - airflow_configure
   tags:
     - airflow_configure
+
+- name: CDC - Basic setup
+  hosts: cdcs
+  vars_files:
+    - vars/main.yaml
+  roles:
+    - setup
+  tags:
+    - cdc_basic
+
+- name: CDC - Installation
+  hosts: cdcs
+  vars_files:
+    - vars/main.yaml
+    - vars/secrets.yaml
+  roles:
+    - cdc_install
+  tags:
+    - cdc_install
+
+- name: CDC - Configuration
+  hosts: cdcs
+  vars_files:
+    - vars/main.yaml
+    - vars/secrets.yaml
+  roles:
+    - cdc_configure
+  tags:
+    - cdc_configure
