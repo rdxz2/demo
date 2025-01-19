@@ -14,6 +14,7 @@
     cdc_db_port: "{{ item.value.cdc_db_port }}"
     cdc_db_user: "{{ item.value.cdc_db_user }}"
     cdc_db_name: "{{ item.value.cdc_db_name }}"
+    cdc_db_pass: "{{ cdc_db_passes[item.key] }}"
     cdc_publ_name: "{{ item.value.cdc_publ_name }}"
     cdc_slot_name: "{{ item.value.cdc_slot_name }}"
 
