@@ -86,13 +86,6 @@ git clone git@bitbucket.org:xz2/demo.git
 
 # Install PostgreSQL 16
 bash <<EOF
-set -e
-sudo apt install curl ca-certificates
-sudo install -d /usr/share/postgresql-common/pgdg
-sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
-
-sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-
 sudo apt update -y
 sudo apt install -y postgresql-16
 EOF
@@ -111,11 +104,36 @@ EOF
 
 ## PostgreSQL
 
-```sh
-sudo vim /etc/postgresql/16/main/postgresql.conf  # Configure postgresql settings
-sudo vim /etc/postgresql/16/main/pg_hba.conf  # Configure authentication settings
-sudo systemctl restart postgresql.service
+Configure pg_hba
 
+```sh
+sudo vim /etc/postgresql/16/main/pg_hba.conf
+```
+
+```
+host all airflow 10.0.0.0/24 scram-sha-256
+host all metabase 10.0.0.0/24 scram-sha-256
+
+# Logical replication
+host all repl 10.0.0.0/24 scram-sha-256
+host replication repl 10.0.0.0/24 scram-sha-256
+```
+
+Configure PostgreSQL settings
+
+```sh
+sudo vim /etc/postgresql/16/main/postgresql.conf
+```
+
+```
+listen_addresses = '*'
+wal_level = logical
+```
+
+Reload configuration
+
+```sh
+sudo su - postgres -c 'psql -c "select pg_reload_conf();"'
 sudo su - postgres -c psql
 ```
 
@@ -194,6 +212,91 @@ EXECUTE FUNCTION f__set_replica_identity_full();
 GRANT USAGE ON SCHEMA public TO airflow;
 GRANT ALL ON SCHEMA public TO airflow;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO airflow;
+```
+
+Optional for each databases
+
+```sql
+-- Disable drop command
+DROP EVENT TRIGGER IF EXISTS tg__drop__block_drop;
+DROP FUNCTION IF EXISTS block_drop();
+CREATE FUNCTION block_drop() RETURNS event_trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'DROP commands are disabled!';
+END;
+$$ LANGUAGE plpgsql;
+CREATE EVENT TRIGGER tg__drop__block_drop
+  ON ddl_command_start
+  WHEN TAG IN ('DROP TABLE', 'DROP SCHEMA')
+  EXECUTE FUNCTION block_drop();
+```
+
+## PostgreSQL (physical replication)
+
+Set up a 1:1 phsyical replication between a master and slave postgres instance
+
+### In master server
+
+Configure pg_hba
+
+```sh
+sudo vim /etc/postgresql/16/main/pg_hba.conf
+```
+
+```
+# Physical replication
+host replication repl 10.0.0.x/32 scram-sha-256
+```
+
+Configure PostgreSQL settings
+
+```sh
+sudo vim /etc/postgresql/16/main/postgresql.conf
+```
+
+```
+wal_level = logical
+max_wal_senders = 5
+wal_keep_size = 64
+hot_standby = on
+```
+
+Reload configuration
+
+```sh
+sudo su - postgres -c 'psql -c "select pg_reload_conf();"'
+```
+
+### In slave server
+
+```sh
+# Install PostgreSQL 16
+bash <<EOF
+sudo apt update -y
+sudo apt install -y postgresql-16
+EOF
+
+sudo systemctl stop postgresql
+
+sudo su - postgres
+cd /var/lib/postgresql/16/
+mv main main_old
+pg_basebackup -h 10.0.0.x -D /var/lib/postgresql/16/main/ -U repl -P -v -R -X stream -C -S slave
+exit
+
+sudo systemctl start postgresql
+```
+
+Validate if replication is running
+
+```sh
+sudo su - postgres -c psql
+```
+
+```sql
+select * from pg_stat_wal_receiver;
+
+select * from pg_stat_replication;
 ```
 
 ## CDC docker image
