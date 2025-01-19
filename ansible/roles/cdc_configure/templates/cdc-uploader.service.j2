@@ -4,7 +4,7 @@ Description=CDC uploader service - {{ cdc_target }}
 [Service]
 User=ubuntu
 WorkingDirectory={{ cdc_repo_dir }}
-ExecStart=/bin/bash -c 'source .env.{{ cdc_target }} && {{ cdc_env_dir }}/bin/python uploader.py'
+ExecStart=/bin/bash -c 'source .env.{{ cdc_target }} && {{ cdc_venv_dir }}/bin/python uploader.py'
 Restart=always
 RestartSec=60
 

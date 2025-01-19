@@ -38,7 +38,7 @@
 - name: Create streamer service file into systemd
   become: true
   template:
-    src: "{{ cdc_repo_dir }}/cdc-streamer.service.j2"
+    src: cdc-streamer.service.j2
     dest: /etc/systemd/system/cdc-streamer-{{ item.key }}.service
   loop: "{{ cdc_targets | dict2items }}"
   loop_control:
@@ -49,7 +49,7 @@
 - name: Create uploader service file into systemd
   become: true
   template:
-    src: "{{ cdc_repo_dir }}/cdc-uploader.service.j2"
+    src: cdc-uploader.service.j2
     dest: /etc/systemd/system/cdc-uploader-{{ item.key }}.service
   loop: "{{ cdc_targets | dict2items }}"
   loop_control:
