@@ -3,7 +3,7 @@
 - name: Copy application dotenv file
   template:
     src: .env.j2
-    dest: "{{ cdc_repo_dir }}/.env"
+    dest: "{{ cdc_repo_dir }}/.env.{{ item.key }}"
     mode: 0700
   loop: "{{ cdc_targets | dict2items }}"
   loop_control:
