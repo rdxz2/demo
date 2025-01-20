@@ -32,9 +32,9 @@ CDC_DB_NAME = os.environ['CDC_DB_NAME']
 
 LOG_DIR = os.environ['LOG_DIR']
 
-PROTO_OUTPUT_DIR = os.path.join('output', CDC_DB_NAME, 'proto')
+PROTO_OUTPUT_DIR = os.environ['PROTO_OUTPUT_DIR']
 
-UPLOAD_OUTPUT_DIR = os.path.join('output', CDC_DB_NAME, 'upload')
+UPLOAD_OUTPUT_DIR = os.environ['UPLOAD_OUTPUT_DIR']
 UPLOADER_THREADS = int(os.environ['UPLOADER_THREADS'])
 UPLOADER_FILE_POLL_INTERVAL_S = int(os.environ['UPLOADER_FILE_POLL_INTERVAL_S'])
 UPLOADER_STREAM_CHUNK_SIZE_B = int(os.environ['UPLOADER_STREAM_CHUNK_SIZE_B'])
@@ -338,6 +338,7 @@ if __name__ == '__main__':
     uploader = Uploader()
     latest_file_ts = datetime.now(tz=timezone.utc)
     latest_no_file_print_ts = datetime.now(tz=timezone.utc)
+    logger.info(f'Listening to folder: {UPLOAD_OUTPUT_DIR}')
     while True:
         if filenames := glob.glob(f'{UPLOAD_OUTPUT_DIR}/*.json'):
 
