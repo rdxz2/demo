@@ -19,8 +19,7 @@
   template:
     src: metabase.service.j2
     dest: /etc/systemd/system/metabase.service
-  notify:
-    - Reload systemd daemon
+  register: copy_service_file_result
 
 - name: Copy Metabase run script
   template:
@@ -29,6 +28,11 @@
     mode: 0700
 
 # Services
+
+- name: Reload systemd daemon
+  become: true
+  command: systemctl daemon-reload
+  when: copy_service_file_result.changed
 
 - name: Start Metabase service
   become: true

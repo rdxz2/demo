@@ -30,7 +30,7 @@
 # Configuration files
 
 - name: Copy webserver configuration file into Airflow home directory
-  file:
+  copy:
     src: webserver_config.py
     dest: "{{ airflow_home_dir }}/webserver_config.py"
 
@@ -39,8 +39,7 @@
   template:
     src: airflow-webserver.service.j2
     dest: /etc/systemd/system/airflow-webserver.service
-  notify:
-    - Reload systemd daemon
+  register: copy_webserver_service_file_result
 
 - name: Copy webserver run script
   template:
@@ -53,8 +52,7 @@
   template:
     src: airflow-scheduler.service.j2
     dest: /etc/systemd/system/airflow-scheduler.service
-  notify:
-    - Reload systemd daemon
+  register: copy_scheduler_service_file_result
 
 - name: Copy scheduler run script
   template:
@@ -64,8 +62,13 @@
 
 # Services
 
+- name: Reload systemd daemon
+  become: true
+  command: systemctl daemon-reload
+  when: copy_webserver_service_file_result.changed or copy_scheduler_service_file_result.changed
+
 - name: Migrate database
-  shell: "source {{ airflow_repo_dir }}/.env.airflow && {{ airflow_venv_dir }}/bin/airflow db migrate"
+  shell: "source {{ airflow_home_dir }}/.env.airflow && {{ airflow_venv_dir }}/bin/airflow db migrate"
   args:
     executable: /bin/bash
 

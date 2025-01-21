@@ -46,8 +46,7 @@
     label: "{{ item.key }}"
   vars: # Used in template file
     cdc_target: "{{ item.key }}"
-  notify:
-    - Reload systemd daemon
+  register: copy_streamer_service_file_result
 
 - name: Create uploader service file into systemd
   become: true
@@ -59,10 +58,14 @@
     label: "{{ item.key }}"
   vars: # Used in template file
     cdc_target: "{{ item.key }}"
-  notify:
-    - Reload systemd daemon
+  register: copy_uploader_service_file_result
 
 # Services
+
+- name: Reload systemd daemon
+  become: true
+  command: systemctl daemon-reload
+  when: copy_streamer_service_file_result.changed or copy_uploader_service_file_result.changed
 
 - name: Start streamer service
   become: true
