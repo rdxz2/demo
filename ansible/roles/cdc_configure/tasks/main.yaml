@@ -46,6 +46,8 @@
     label: "{{ item.key }}"
   vars: # Used in template file
     cdc_target: "{{ item.key }}"
+  notify:
+    - Reload systemd daemon
 
 - name: Create uploader service file into systemd
   become: true
@@ -57,10 +59,12 @@
     label: "{{ item.key }}"
   vars: # Used in template file
     cdc_target: "{{ item.key }}"
+  notify:
+    - Reload systemd daemon
 
 # Services
 
-- name: Start CDC streamer
+- name: Start streamer service
   become: true
   systemd:
     name: cdc-streamer-{{ item.key }}.service
@@ -72,7 +76,7 @@
   vars:
     cdc_target: "{{ item.key }}"
 
-- name: Start CDC scheduler
+- name: Start scheduler service
   become: true
   systemd:
     name: cdc-uploader-{{ item.key }}.service

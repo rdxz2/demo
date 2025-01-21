@@ -1,6 +1,6 @@
 # Env files
 
-- name: Copy Airflow environment variable file
+- name: Copy service environment variable file
   template:
     src: .env.airflow.j2
     dest: "{{ airflow_home_dir }}/.env.airflow"
@@ -39,6 +39,8 @@
   template:
     src: airflow-webserver.service.j2
     dest: /etc/systemd/system/airflow-webserver.service
+  notify:
+    - Reload systemd daemon
 
 - name: Copy webserver run script
   template:
@@ -51,6 +53,8 @@
   template:
     src: airflow-scheduler.service.j2
     dest: /etc/systemd/system/airflow-scheduler.service
+  notify:
+    - Reload systemd daemon
 
 - name: Copy scheduler run script
   template:
@@ -65,14 +69,14 @@
   args:
     executable: /bin/bash
 
-- name: Start the webserver
+- name: Start webserver service
   become: true
   systemd:
     name: airflow-webserver.service
     state: restarted
     enabled: yes
 
-- name: Start the scheduler
+- name: Start scheduler service
   become: true
   systemd:
     name: airflow-scheduler.service
