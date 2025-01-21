@@ -3,7 +3,7 @@ Description=Airflow scheduler
 
 [Service]
 User=ubuntu
-WorkingDirectory=/home/ubuntu/demo/airflow
+WorkingDirectory={{ airflow_home_dir }}
 ExecStart=/bin/bash run-scheduler.sh
 Restart=always
 RestartSec=10

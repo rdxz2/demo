@@ -3,7 +3,7 @@
 - name: Copy Airflow environment variable file
   template:
     src: .env.airflow.j2
-    dest: "{{ airflow_repo_dir }}/.env.airflow"
+    dest: "{{ airflow_home_dir }}/.env.airflow"
     mode: 0700
 
 - name: Copy application dotenv file
@@ -28,25 +28,34 @@
 
 # Configuration files
 
-- name: Link webserver configuration file into Airflow home directory
+- name: Copy webserver configuration file into Airflow home directory
   file:
-    src: "{{ airflow_repo_dir }}/webserver_config.py"
+    src: webserver_config.py
     dest: "{{ airflow_home_dir }}/webserver_config.py"
-    state: link
 
-- name: Link webserver file into systemd
+- name: Copy webserver service file into systemd
   become: true
-  file:
-    src: "{{ airflow_repo_dir }}/airflow-webserver.service"
+  template:
+    src: airflow-webserver.service.j2
     dest: /etc/systemd/system/airflow-webserver.service
-    state: link
 
-- name: Link scheduler file into systemd
+- name: Copy webserver run script
+  template:
+    src: run-webserver.sh.j2
+    dest: "{{ airflow_home_dir }}/run-webserver.service"
+    mode: 0700
+
+- name: Copy scheduler service file into systemd
   become: true
-  file:
-    src: "{{ airflow_repo_dir }}/airflow-scheduler.service"
+  template:
+    src: airflow-scheduler.service.j2
     dest: /etc/systemd/system/airflow-scheduler.service
-    state: link
+
+- name: Copy scheduler run script
+  template:
+    src: run-scheduler.sh.j2
+    dest: "{{ airflow_home_dir }}/run-scheduler.service"
+    mode: 0700
 
 # Services
 

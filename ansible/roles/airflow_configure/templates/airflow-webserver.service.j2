@@ -1,9 +1,9 @@
 [Unit]
-Description=Airflow webserver service
+Description=Airflow webserver
 
 [Service]
 User=ubuntu
-WorkingDirectory=/home/ubuntu/demo/airflow
+WorkingDirectory={{ airflow_home_dir }}
 ExecStart=/bin/bash run-webserver.sh
 Restart=always
 RestartSec=10
