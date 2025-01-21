@@ -32,7 +32,7 @@ CDC_DB_NAME = os.environ['CDC_DB_NAME']
 
 LOG_DIR = os.environ['LOG_DIR']
 
-PROTO_OUTPUT_DIR = os.path.join('output', CDC_DB_NAME, 'proto')
+PROTO_OUTPUT_DIR = os.path.join('output', CDC_DB_NAME, 'proto')  # This must use the current directory because proto generation will throw error without --proto-path parameter
 
 UPLOAD_OUTPUT_DIR = os.environ['UPLOAD_OUTPUT_DIR']
 UPLOADER_THREADS = int(os.environ['UPLOADER_THREADS'])
