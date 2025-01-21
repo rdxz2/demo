@@ -44,7 +44,7 @@
 - name: Copy webserver run script
   template:
     src: run-webserver.sh.j2
-    dest: "{{ airflow_home_dir }}/run-webserver.service"
+    dest: "{{ airflow_home_dir }}/run-webserver.sh"
     mode: 0700
 
 - name: Copy scheduler service file into systemd
@@ -57,7 +57,7 @@
 - name: Copy scheduler run script
   template:
     src: run-scheduler.sh.j2
-    dest: "{{ airflow_home_dir }}/run-scheduler.service"
+    dest: "{{ airflow_home_dir }}/run-scheduler.sh"
     mode: 0700
 
 # Services
