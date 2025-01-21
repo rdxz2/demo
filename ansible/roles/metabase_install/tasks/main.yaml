@@ -8,5 +8,5 @@
 - name: Download Metabase
   get_url:
     url: https://downloads.metabase.com/{{ metabase_version }}/metabase.jar
-    dest: "{{ metabase_home_dir }}/metabase-{{ metabase_version }}"
+    dest: "{{ metabase_home_dir }}/metabase-{{ metabase_version }}.jar"
     mode: 0600
