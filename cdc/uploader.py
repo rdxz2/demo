@@ -32,7 +32,7 @@ CDC_DB_NAME = os.environ['CDC_DB_NAME']
 
 LOG_DIR = os.environ['LOG_DIR']
 
-PROTO_OUTPUT_DIR = os.environ['PROTO_OUTPUT_DIR']
+PROTO_OUTPUT_DIR = os.path.join('output', CDC_DB_NAME, 'proto')
 
 UPLOAD_OUTPUT_DIR = os.environ['UPLOAD_OUTPUT_DIR']
 UPLOADER_THREADS = int(os.environ['UPLOADER_THREADS'])
