@@ -14,9 +14,9 @@
 
 - name: Clone this repository
   git:
-    repo: git@bitbucket.org:xz2/demo.git
+    repo: git@github.com-demo:rdxz2/demo.git
     dest: "{{ repo_dir }}"
-    version: master
+    version: "{{ git_branch }}"
 
 - name: Ensure venv directory exists
   file:

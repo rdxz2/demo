@@ -41,6 +41,6 @@ setuptools==75.1.0
 six==1.16.0
 typing_extensions==4.12.2
 urllib3==2.2.3
--e git+ssh://git@bitbucket.org/xz2/utill.git@a0a14b0e118812b503430d6c1108935c336107fe#egg=utill
+-e git+ssh://git@github.com-utill/rdxz2/utill.git@a0a14b0e118812b503430d6c1108935c336107fe#egg=utill
 wheel==0.44.0
 yarl==1.18.3

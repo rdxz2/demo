@@ -1,6 +1,8 @@
 all:
   # Global variables in environment level
   vars:
+    git_branch: master
+
     gcp_project_id: xz2-demo
     gcp_region: asia-southeast2
 
