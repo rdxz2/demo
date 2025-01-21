@@ -32,6 +32,7 @@
   copy:
     content: "{{ sa_cdc.payload.data | b64decode }}"
     dest: "{{ sa_cdc_filename }}"
+    mode: 0400
 
 # Configuration files
 

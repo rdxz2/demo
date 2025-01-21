@@ -25,6 +25,7 @@
   copy:
     content: "{{ sa_airflow.payload.data | b64decode }}"
     dest: "{{ sa_airflow_filename }}"
+    mode: 0400
 
 # Configuration files
 
