@@ -74,8 +74,10 @@ all:
       mb_db_user: metabase
       mb_db_dbname: metabase
       mb_admin_email: richard.dharmawan@gmail.com
+      mb_anon_tracking_enabled: false
       mb_db_query_timeout_minutes: 1
       mb_download_row_limit: -1 # Disable downloads e.g. the file will contains error stack without showing sensitive data
+      mb_google_auth_enabled: true
       mb_site_name: XZ2 Demo
       mb_site_url: https://metabase.rdxz2.site
       mb_enable_xrays: false
