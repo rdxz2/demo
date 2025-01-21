@@ -47,7 +47,7 @@ See the manual deployment for PostgreSQL [below](#postgresql)
 
 ```sh
 cd ~/demo/ansible
-ansible-playbook -i inventory/prod.yaml play.yaml --vault-password-file=~/secret/ansible_vault_password
+ansible-playbook -i inventory/prod.yaml -e "secrets_file=vars/secrets_prod.yaml" --vault-password-file=~/secret/ansible_vault_password play.yaml
 ```
 
 # Manual deployment
@@ -176,6 +176,9 @@ GRANT ALL ON ALL TABLES IN SCHEMA public TO metabase;
 GRANT USAGE ON SCHEMA public TO airflow;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO airflow;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO airflow;
+GRANT USAGE ON SCHEMA public TO metabase_readonly;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO metabase_readonly;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO metabase_readonly;
 -- Create trigger to alter table replica identity to full for tables that does not have primary key
 CREATE OR REPLACE FUNCTION f__set_replica_identity_full()
 RETURNS event_trigger AS $$

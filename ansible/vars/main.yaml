@@ -1,4 +1,6 @@
-# Global variables accross all environments
+# Global variables across all environments
+
+timezone: Asia/Jakarta
 
 home_dir: /home/ubuntu
 

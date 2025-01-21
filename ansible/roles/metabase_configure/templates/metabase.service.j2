@@ -4,7 +4,7 @@ After=postgresql.service
 
 [Service]
 User=ubuntu
-WorkingDirectory=/home/ubuntu/demo/metabase
+WorkingDirectory={{ metabase_home_dir }}
 ExecStart=/bin/bash run.sh
 Restart=always
 RestartSec=10

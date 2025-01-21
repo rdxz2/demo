@@ -11,7 +11,7 @@
   hosts: airflows
   vars_files:
     - vars/main.yaml
-    - vars/secrets.yaml
+    - "{{ secrets_file }}"
   roles:
     - airflow_install
   tags:
@@ -21,7 +21,7 @@
   hosts: airflows
   vars_files:
     - vars/main.yaml
-    - vars/secrets.yaml
+    - "{{ secrets_file }}"
   roles:
     - airflow_configure
   tags:
@@ -40,7 +40,7 @@
   hosts: cdcs
   vars_files:
     - vars/main.yaml
-    - vars/secrets.yaml
+    - "{{ secrets_file }}"
   roles:
     - cdc_install
   tags:
@@ -50,8 +50,37 @@
   hosts: cdcs
   vars_files:
     - vars/main.yaml
-    - vars/secrets.yaml
+    - "{{ secrets_file }}"
   roles:
     - cdc_configure
   tags:
     - cdc_configure
+
+- name: Metabase - Basic setup
+  hosts: metabases
+  vars_files:
+    - vars/main.yaml
+  roles:
+    - setup
+  tags:
+    - metabase_basic
+
+- name: Metabase - Installation
+  hosts: metabases
+  vars_files:
+    - vars/main.yaml
+    - "{{ secrets_file }}"
+  roles:
+    - metabase_install
+  tags:
+    - metabase_install
+
+- name: Metabase - Configuration
+  hosts: metabases
+  vars_files:
+    - vars/main.yaml
+    - "{{ secrets_file }}"
+  roles:
+    - metabase_configure
+  tags:
+    - metabase_configure

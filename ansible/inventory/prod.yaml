@@ -1,8 +1,6 @@
 all:
   # Global variables in environment level
   vars:
-    timezone: Asia/Jakarta
-
     gcp_project_id: xz2-demo
     gcp_region: asia-southeast2
 
@@ -59,3 +57,39 @@ all:
           cdc_db_name: metabase
           cdc_publ_name: metabase
           cdc_slot_name: metabase
+
+    metabases:
+      ansible_host: 10.0.0.5
+      ansible_user: ubuntu
+
+      metabase_version: v0.52.2
+      metabase_home_dir: "{{ home_dir }}/metabase"
+
+      # Env vars
+      mb_db_type: postgres
+      mb_db_host: 10.0.0.5
+      mb_db_port: 5432
+      mb_db_user: metabase
+      mb_db_dbname: metabase
+      mb_admin_email: richard.dharmawan@gmail.com
+      mb_db_query_timeout_minutes: 1
+      mb_download_row_limit: -1 # Disable downloads e.g. the file will contains error stack without showing sensitive data
+      mb_site_name: XZ2 Demo
+      mb_site_url: https://metabase.rdxz2.site
+      mb_enable_xrays: false
+      mb_show_homepage_xrays: false
+      mb_show_homepage_data: false
+      mb_report_timezone: "{{ timezone }}"
+      mb_humanization_strategy: none # Just show the database original object names
+      mb_native_query_autocomplete_match_style: prefix # Increase performance in large database
+      mb_enable_test_endpoints: false
+      mb_load_sample_content: false
+      mb_password_complexity:
+      mb_password_length:
+      mb_start_of_week: monday
+      mb_enable_public_sharing: false
+      mb_enable_query_caching: false
+      mb_query_caching_max_ttl: 3600
+      mb_query_caching_max_kb: 100
+      mb_jetty_host: 0.0.0.0
+      mb_jetty_port: 3000

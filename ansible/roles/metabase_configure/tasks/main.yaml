@@ -1,0 +1,30 @@
+# Env files
+
+- name: Copy Metabase environment variable file
+  template:
+    src: .env.metabase.j2
+    dest: "{{ metabase_home_dir }}/.env.metabase"
+    mode: 0700
+
+# Configuration files
+
+- name: Copy Metabase service file into systemd
+  become: true
+  template:
+    src: metabase.service.j2
+    dest: /etc/systemd/system/metabase.service
+
+- name: Copy Metabase run script
+  template:
+    src: run.sh.j2
+    dest: "{{ metabase_home_dir }}/run.sh"
+    mode: 0700
+
+# Services
+
+- name: Start Metabase
+  become: true
+  systemd:
+    name: metabase.service
+    state: restarted
+    enabled: yes
