@@ -5,24 +5,26 @@ Do this in the deployer instance (can be the target instance too)
 ## First time setup
 
 ```sh
-# Enable cloning git repository from BitBucket: generate and copy the public key to the repository access key
-# Enable SSH to the targer server: generate and copy the public key to the target server
-ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa-demo -N ""  # Upload the key to github
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa-utill -N ""  # Upload the key to github
 cat > ~/.ssh/config <<EOF
-Host bitbucket.org
-HostName bitbucket.org
-User git
-IdentityFile ~/.ssh/id_rsa
-IdentitiesOnly yes
+Host github.com-demo
+HostName github.com
+IdentityFile ~/.ssh/id_rsa-demo
+
+Host github.com-utill
+HostName github.com
+IdentityFile ~/.ssh/id_rsa-utill
 EOF
-chmod 400 ~/.ssh/id_rsa ~/.ssh/config
+chmod 600 ~/.ssh/config
+chmod 400 ~/.ssh/id_rsa-demo ~/.ssh/id_rsa-utill
 
 # Install python
 sudo apt install -y python3.12 python3.12-venv
 mkdir ~/venv
 
 # Clone git repository
-git clone git@bitbucket.org:xz2/demo.git
+git clone git@github.com-demo:rdxz2/demo.git
 
 # Copy the ansible vault password
 mkdir ~/secret
@@ -57,16 +59,19 @@ ansible-playbook -i inventory/prod.yaml -e "secrets_file=vars/secrets_prod.yaml"
 Do this directly in the target instance
 
 ```sh
-# Enable cloning git repository from BitBucket: generate and copy the public key to the repository access key
-ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa-demo -N ""  # Upload the key to github
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa-utill -N ""  # Upload the key to github
 cat > ~/.ssh/config <<EOF
-Host bitbucket.org
-HostName bitbucket.org
-User git
-IdentityFile ~/.ssh/id_rsa
-IdentitiesOnly yes
+Host github.com-demo
+HostName github.com
+IdentityFile ~/.ssh/id_rsa-demo
+
+Host github.com-utill
+HostName github.com
+IdentityFile ~/.ssh/id_rsa-utill
 EOF
-chmod 400 ~/.ssh/id_rsa ~/.ssh/config
+chmod 600 ~/.ssh/config
+chmod 400 ~/.ssh/id_rsa-demo ~/.ssh/id_rsa-utill
 
 # Output file for cdc logs
 mkdir -p cdc/output cdc/dockerlogs
