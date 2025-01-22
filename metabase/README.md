@@ -70,6 +70,10 @@ WHEN TAG IN ('CREATE TABLE')
 EXECUTE FUNCTION f__set_replica_identity_full();
 ```
 
+## Optional SQL
+
+See [optional.sql](./optional.sql) for optional queries than can be run during setup/
+
 # Run Metabase locally
 
 ```sh
