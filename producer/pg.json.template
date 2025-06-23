@@ -1,0 +1,9 @@
+{
+  "streamer": {
+    "host": "xxx",
+    "port": 5432,
+    "db": "xxx",
+    "username": "xxx",
+    "password": "xxx"
+  }
+}
