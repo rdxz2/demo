@@ -1,17 +1,70 @@
-# Development
+# Hello
 
-## PostgreSQL installation
+My name is Richard and I am a data engineer working with ELT pipelines and infrastructure on daily-basis.
+
+This demo project will showcase my various capabilities as data engineer:
+
+- Daily public data ingestion with Airflow into BigQuery
+- CDC, deliver PostgreSQL transactions (WAL logs) directly into BigQuery
+- Daily BigQuery data backup using GCS
+- Insights extraction via dashboard, using Metabase
+- Wrap them up in a single Streamlit site
+- Alerting into Discord webhook
+
+All the service above (except the fully-managed services like BigQuery and GCS) are self-hosted in GCP, with flow diagram below
+
+_[placeholder]_
+
+This readme file will explain all the components needed to run the project.
+
+# Appendix 1. development guide
+
+To begin develop
+
+## Setup PostgreSQL
+
+Create container
 
 ```sh
-docker volume create pg__data
+docker volume create demo-pg
 
 docker run \
-    --name pg \
+    --name demo-pg \
     -d \
-    -p 5432:5432 \
+    -p 40000:5432 \
     -e POSTGRES_PASSWORD=12321 \
-    -v pg__data:/var/lib/postgresql/data \
-    postgres:16
+    -v demo-pg:/var/lib/postgresql/data \
+    postgres:17
+
+docker exec -it demo-pg psql -U postgres
+```
+
+Change WAL level into logical
+
+```sql
+alter system set wal_level = logical;
+show wal_level;  -- Should print logical
+```
+
+Restart container so previous configurations is loaded
+
+```sh
+docker restart demo-pg
+
+docker exec -it demo-pg psql -U postgres
+```
+
+Set up "dummy" application database with replication
+
+```sql
+create user dummy with password '12321' login;
+create database dummydb owner dummy;
+
+create user repl with password '12321' login replication;
+
+\c dummydb
+create publication "repl" for all tables;
+select pg_create_replication_slots('repl', 'pgoutput');
 ```
 
 ## Handful scripts
@@ -55,3 +108,5 @@ airflow webserver
 airflow scheduler
 
 ```
+
+# Deployment
