@@ -1,9 +1,9 @@
 {
-  "streamer": {
-    "host": "xxx",
-    "port": 5432,
-    "db": "xxx",
-    "username": "xxx",
-    "password": "xxx"
+  "stream": {
+    "host": "localhost",
+    "port": 40000,
+    "db": "dummydb",
+    "username": "dummy",
+    "password": "12321"
   }
 }

@@ -1,4 +1,5 @@
 import os
+import sys
 import threading
 import traceback
 
@@ -10,6 +11,9 @@ from textwrap import dedent
 from time import sleep
 from utill.my_pg import PG
 from utill.my_string import generate_random_string
+
+logger.remove()
+logger.add(sys.stderr, level='INFO')
 
 __PG_CONNECTION_FILE = os.path.join(os.path.dirname(__file__), 'pg.json')
 __PG_CONNECTION_NAME = 'stream'
@@ -70,7 +74,7 @@ def simulate_user():
             probability = randint(0, 100)
             if 0 <= probability <= 60:
                 # 60% chance create user
-                id = pg.execute_query('insert into public.user (username, email, password, is_active) values (%s, %s, %s, %s, %s, %s, %s) returning id', (
+                id = pg.execute_query('insert into public.user (username, email, password, is_active) values (%s, %s, %s, %s) returning id', (
                     generate_random_string(randint(5, 20), True),  # Username
                     f'{generate_random_string(randint(5, 35))}@{generate_random_string(randint(5, 10), True)}.{generate_random_string(3, True)}',  # Email
                     generate_random_string(50),  # Password
@@ -82,13 +86,14 @@ def simulate_user():
                 # Can update 1 to 5 user at a time
                 # Update the last login
                 ids = pg.execute_query(f'select id from public.user where is_active = %s order by random() limit {randint(1, 5)}', (True, )).fetchall()
-                pg.execute_query('update public.user set updated_at = current_timestamp, last_login = current_timestamp where user_id = any(%s)', (ids, ))
+                ids = [x[0] for x in ids]
+                pg.execute_query('update public.user set updated_at = current_timestamp, last_login = current_timestamp where id = any(%s)', (ids, ))
                 logger.info(f'{simulate_user.__name__}: Update {ids}')
             elif 99 <= probability <= 100:
                 # 1% chance soft-delete user
                 id = pg.execute_query('select id from public.user where is_active = %s limit 1', (True, )).fetchone()[0]
                 if id is not None:
-                    pg.execute_query('update public.user set updated_at = current_timestamp, is_active = %s where user_id = %s', (False, id))
+                    pg.execute_query('update public.user set updated_at = current_timestamp, is_active = %s where id = %s', (False, id))
                     logger.info(f'{simulate_user.__name__}: Soft-delete {id}')
             else:
                 raise ValueError('Probability out of range!')
@@ -121,12 +126,12 @@ def simulate_loan():
                     updated_at timestamptz not null default current_timestamp,
                     user_id varchar(20) not null,
                     product_id smallint not null,
-                    interest_rate int not null
+                    interest_rate int not null,
                     amount decimal(10, 2) not null,
                     interest decimal(10, 2) not null,
                     duration int not null,
-                    first_due_date not null,
-                    last_due_date not null,
+                    first_due_date date not null,
+                    last_due_date date not null,
                     is_paid_off boolean not null
                 );
                 alter table public.loan replica identity full;
@@ -136,7 +141,7 @@ def simulate_loan():
 
         # Infinitely run
         while not __STOP_EVENT.is_set():
-            user_id = pg.execute_query('select id from public.user where is_active = %s order by random() limit 1').fetchone()
+            user_id = pg.execute_query('select id from public.user where is_active = %s order by random() limit 1', (True, )).fetchone()
             if user_id is not None:
                 amount = round(uniform(10.0, 10000.0), 2)
                 interest_rate = randint(1, 10)
@@ -191,7 +196,7 @@ def simulate_repayment():
                     id serial not null primary key,
                     created_at timestamptz not null default current_timestamp,
                     updated_at timestamptz not null default current_timestamp,
-                    loan_id bigint not null references public.loan(loan_id),
+                    loan_id bigint not null references public.loan(id),
                     amount decimal(10, 2) not null
                 );
                 alter table public.repayment replica identity full;
@@ -203,7 +208,20 @@ def simulate_repayment():
         while not __STOP_EVENT.is_set():
             # Search for outstanding loan
             # Not created today
-            row = pg.execute_query('select id, amount + interest as total, (amount + interest) - (amount_paid + interest_paid) as outstanding from public.loan where is_paid_off = %s and created_on != current_timestamp::date order by random() limit 1', (False, )).fetchone()
+            row = pg.execute_query(dedent(
+                '''
+                select l.id
+                    , (l.amount + l.interest) as total
+                    , (l.amount + l.interest) - sum(r.amount) as outstanding
+                from public.loan l
+                join public.repayment r on r.loan_id = l.id
+                where l.is_paid_off = %s
+                    and l.created_at != current_timestamp::date
+                group by l.id, l.amount, l.interest
+                order by random()
+                limit 1
+                '''
+            ), (False, )).fetchone()
             if row is not None:
                 loan_id, total, outstanding = row
                 repayment_amount = 0
