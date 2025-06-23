@@ -55,6 +55,15 @@ def read_file_last_line(file: str) -> str:
 
 
 class Uploader:
+    """
+    This process will constantly monitor the upload directory for new files produced by the streamer.
+
+    There will be a maximum of X threads being spawned, each thread will:
+    - Take a single group of table (a single table can produce multiple files if it has big enough transactions).
+    - Generate a protobuf class for that table.
+    - Write file contents directly into BigQuery using BigQuery Write API, utilizing the generated protobuf class.
+    """
+
     def __init__(self) -> None:
         self.bq_client = bigquery.Client.from_service_account_json(settings.UPLOAD_SA_FILENAME)
         self.write_client = bigquery_storage_v1.BigQueryWriteClient.from_service_account_json(settings.UPLOAD_SA_FILENAME)
@@ -316,8 +325,8 @@ if __name__ == '__main__':
     thread_pool_executor = ThreadPoolExecutor(max_workers=settings.UPLOAD_THREADS)
     logger.info('Starting cdc uploader...')
     uploader = Uploader()
-    latest_file_ts = datetime.now(tz=timezone.utc)
-    latest_no_file_print_ts = datetime.now(tz=timezone.utc)
+    latest_file_ts = datetime.now(timezone.utc)
+    latest_no_file_print_ts = datetime.now(timezone.utc)
     logger.info(f'Listening to folder: {settings.UPLOAD_OUTPUT_DIR}')
     while True:
         if filenames := glob.glob(f'{settings.UPLOAD_OUTPUT_DIR}/*.json'):
@@ -342,11 +351,11 @@ if __name__ == '__main__':
                     send_message(f'_CDC Uploader [{settings.STREAM_DB_NAME}]_ error: **{e}**\nTable: **{pg_table_fqn}**\nFiles:\n```{filenames}```Traceback:\n```{t}```')
                     raise e
 
-            latest_file_ts = datetime.now(tz=timezone.utc)
+            latest_file_ts = datetime.now(timezone.utc)
         else:
             time.sleep(settings.UPLOAD_FILE_POLL_INTERVAL_S)
 
-            now = datetime.now(tz=timezone.utc)
+            now = datetime.now(timezone.utc)
             if (now - latest_file_ts).total_seconds() > settings.UPLOAD_NO_FILE_REPORT_INTERVAL_S and (now - latest_no_file_print_ts).total_seconds() > settings.UPLOAD_NO_FILE_REPORT_INTERVAL_S:
                 logger.warning(f'No file for {(now - latest_file_ts).total_seconds()} seconds')
                 latest_no_file_print_ts = now

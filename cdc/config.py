@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     STREAM_REPLICATION_SLOT_NAME: str
     STREAM_NO_MESSAGE_REPORT_INTERVAL_S: Optional[int] = 60  # If no message received for this time, report it
     STREAM_DELAY_PRINT_INTERVAL_S: Optional[int] = 1
-    STREAM_CONSUMER_QUEUE_MAX_SIZE: Optional[int] = 1000
+    STREAM_CONSUMER_QUEUE_MAX_SIZE: Optional[int] = 1000  # Number of max messages to be held, to limit streamer's memory usage
     STREAM_CONSUMER_POLL_INTERVAL_S: Optional[int] = 1  # Number of seconds to wait if there's no message in the queue
     STREAM_FILEWRITER_MAX_FILE_SIZE_B: Optional[int] = 2000000  # If a single file exceeds this size, close all files
     STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S: Optional[int] = 600  # If a file is opened for this time, close all files

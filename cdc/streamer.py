@@ -27,9 +27,12 @@ logger.add(os.path.join(settings.LOG_DIR, f'{os.path.basename(__file__)}.log'), 
 
 class LogicalReplicationStreamer:
     """
-    Main process, responsible for consuming replication message from the pipe and converting it into JSON format
+    This process will spawn 3 additional threads:
+    - Streamer: constantly read the database message, parse it into structured object and put it into queue.
+    - Consumer: pull the message from the queue, decode and write the content to files. This process took time for each message processed, so a large amount of database transaction will introduce delays.
+    - Monitor: constantly logs the time difference between the current processed message timestamp and current timestamp.
 
-    This process as another subprocess `file_writer()` to consume the decoded messages and write it into files.
+    Note that we are referring "database message" as the actual transaction happened inside the database.
     """
 
     def __init__(self, host: str, port: str, user: str, password: str, database: str, application_name: str = f'cdc-streamer-{settings.STREAM_DB_NAME}-{generate_random_string(alphanum=True)}', **kwargs) -> None:
@@ -43,10 +46,10 @@ class LogicalReplicationStreamer:
         self.send_feedback = False
         self.latest_lsn = None
         self.latest_commit_ts = None
-        self.now = datetime.now(tz=timezone.utc)
+        self.now = datetime.now(timezone.utc)
         self.msg_count = 0
-        self.latest_msg_ts = datetime.now(tz=timezone.utc)
-        self.latest_all_file_closed_ts = datetime.now(tz=timezone.utc)
+        self.latest_msg_ts = datetime.now(timezone.utc)
+        self.latest_all_file_closed_ts = datetime.now(timezone.utc)
         self.opened_files: dict[str, FileDescriptor] = {}  # { table_name: FileDescriptor }
 
         self.exception_event = threading.Event()
@@ -166,7 +169,7 @@ class LogicalReplicationStreamer:
             logger.warning('Gracefully stopped consumer thread')
 
     def write_to_file(self, decoded_msg: TransactionEvent) -> None:
-        filename = os.path.join(settings.STREAM_OUTPUT_DIR, f'{decoded_msg.transaction.commit_ts.strftime("%Y%m%d%H%M%S%f")}-{datetime.now(tz=timezone.utc).strftime("%Y%m%d%H%M%S%f")}-{decoded_msg.table.fqn}.json')
+        filename = os.path.join(settings.STREAM_OUTPUT_DIR, f'{decoded_msg.transaction.commit_ts.strftime("%Y%m%d%H%M%S%f")}-{datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")}-{decoded_msg.table.fqn}.json')
         dirname = os.path.dirname(filename)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
@@ -234,15 +237,15 @@ class LogicalReplicationStreamer:
         if is_any_closed:
             self.send_feedback = True
 
-        self.latest_all_file_closed_ts = datetime.now(tz=timezone.utc)
+        self.latest_all_file_closed_ts = datetime.now(timezone.utc)
 
     def monitor(self) -> None:
         logger.debug('Monitor thread started...')
         try:
             empty_msg_count = 0
-            latest_no_msg_print_ts = datetime.now(tz=timezone.utc)
+            latest_no_msg_print_ts = datetime.now(timezone.utc)
             while not self.exception_event.is_set():
-                self.now = datetime.now(tz=timezone.utc)
+                self.now = datetime.now(timezone.utc)
                 if self.msg_count or empty_msg_count < 3:
                     if self.msg_count == 0:
                         empty_msg_count += 1
