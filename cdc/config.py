@@ -11,13 +11,13 @@ class Settings(BaseSettings):
     STREAM_DB_USER: str
     STREAM_DB_PASS: str
     STREAM_DB_NAME: str
-
-    LOG_DIR: str = f'logs/{STREAM_DB_NAME}'
-
-    # Configure streamer
-    STREAM_OUTPUT_DIR: str = f'output/{STREAM_DB_NAME}/stream'
     STREAM_PUBLICATION_NAME: str
     STREAM_REPLICATION_SLOT_NAME: str
+
+    LOG_DIR: Optional[str] = f'logs/{STREAM_DB_NAME}'
+
+    # Configure streamer
+    STREAM_OUTPUT_DIR: Optional[str] = f'output/{STREAM_DB_NAME}/stream'
     STREAM_NO_MESSAGE_REPORT_INTERVAL_S: Optional[int] = 60  # If no message received for this time, report it
     STREAM_DELAY_PRINT_INTERVAL_S: Optional[int] = 1
     STREAM_CONSUMER_QUEUE_MAX_SIZE: Optional[int] = 1000  # Number of max messages to be held, to limit streamer's memory usage
@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S: Optional[int] = 600  # If a file is opened for this time, close all files
     STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S: Optional[int] = 600  # If no message received for this time, close all files
 
-    UPLOAD_OUTPUT_DIR: str = f'output/{STREAM_DB_NAME}/upload'
+    UPLOAD_OUTPUT_DIR: Optional[str] = f'output/{STREAM_DB_NAME}/upload'
     UPLOAD_SA_FILENAME: str
     UPLOAD_BQ_PROJECT_ID: str
     UPLOAD_BQ_DATASET_LOCATION: str
