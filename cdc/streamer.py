@@ -1,4 +1,3 @@
-import dotenv
 import glob
 import json
 import logging
@@ -14,41 +13,16 @@ import traceback
 from datetime import datetime, timedelta, timezone
 from loguru import logger
 from queue import Queue
-from utill.my_string import generate_random_string
 
-from alert import send_message
+from common import send_message, generate_random_string
+from config import settings
 from data import FileDescriptor, ReplicationMessage, TransactionEvent
 from decoder import Decoder, json_serializer
 
-dotenv.load_dotenv()
-
-if os.environ['DEBUG'] == '1':
+# Configure logging
+if settings.DEBUG == 1:
     logging.basicConfig(level=logging.DEBUG)
-
-CDC_DB_HOST = os.environ['CDC_DB_HOST']
-CDC_DB_PORT = int(os.environ['CDC_DB_PORT'])
-CDC_DB_USER = os.environ['CDC_DB_USER']
-CDC_DB_PASS = os.environ['CDC_DB_PASS']
-CDC_DB_NAME = os.environ['CDC_DB_NAME']
-CDC_PUBL_NAME = os.environ['CDC_PUBL_NAME']
-CDC_SLOT_NAME = os.environ['CDC_SLOT_NAME']
-
-LOG_DIR = os.environ['LOG_DIR']
-
-STREAM_OUTPUT_DIR = os.environ['STREAM_OUTPUT_DIR']
-UPLOAD_OUTPUT_DIR = os.environ['UPLOAD_OUTPUT_DIR']
-
-STREAM_NO_MESSAGE_REPORT_INTERVAL_S = int(os.environ['STREAM_NO_MESSAGE_REPORT_INTERVAL_S'])  # If no message received for this time, report it
-STREAM_DELAY_PRINT_INTERVAL_S = int(os.environ['STREAM_DELAY_PRINT_INTERVAL_S'])
-
-STREAM_FILEWRITER_MAX_FILE_SIZE_B = int(os.environ['STREAM_FILEWRITER_MAX_FILE_SIZE_B'])  # If a single file exceeds this size, close all files
-STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S = int(os.environ['STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S'])  # If a file is opened for this time, close all files
-STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S = int(os.environ['STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S'])  # If no message received for this time, close all files
-
-STREAM_CONSUMER_QUEUE_MAX_SIZE = int(os.environ['STREAM_CONSUMER_QUEUE_MAX_SIZE'])
-STREAM_CONSUMER_POLL_INTERVAL_S = int(os.environ['STREAM_CONSUMER_POLL_INTERVAL_S'])  # Number of seconds to wait if there's no message in the queue
-
-logger.add(os.path.join(LOG_DIR, f'{os.path.basename(__file__)}.log'), rotation='00:00', retention='7 days', level='INFO')
+logger.add(os.path.join(settings.LOG_DIR, f'{os.path.basename(__file__)}.log'), rotation='00:00', retention='7 days', level='INFO')
 
 
 class LogicalReplicationStreamer:
@@ -58,12 +32,12 @@ class LogicalReplicationStreamer:
     This process as another subprocess `file_writer()` to consume the decoded messages and write it into files.
     """
 
-    def __init__(self, host: str, port: str, user: str, password: str, database: str, application_name: str = f'cdc-streamer-{CDC_DB_NAME}-{generate_random_string()}', **kwargs) -> None:
+    def __init__(self, host: str, port: str, user: str, password: str, database: str, application_name: str = f'cdc-streamer-{settings.STREAM_DB_NAME}-{generate_random_string(alphanum=True)}', **kwargs) -> None:
         self.dsn = psycopg2.extensions.make_dsn(host=host, port=port, user=user, password=password, database=database, application_name=application_name, **kwargs)
 
         self.decoder = Decoder(self.dsn)
 
-        self.q = Queue(maxsize=STREAM_CONSUMER_QUEUE_MAX_SIZE)
+        self.q = Queue(maxsize=settings.STREAM_CONSUMER_QUEUE_MAX_SIZE)
 
         self.transaction = None
         self.send_feedback = False
@@ -80,10 +54,10 @@ class LogicalReplicationStreamer:
 
         self.conn = psycopg2.connect(self.dsn, connection_factory=psycopg2.extras.LogicalReplicationConnection)
         self.cursor = self.conn.cursor(cursor_factory=psycopg2.extras.ReplicationCursor)
-        logger.debug(f'Connected to db: {CDC_DB_NAME} (Replication)')
+        logger.debug(f'Connected to db: {settings.STREAM_DB_NAME} (Replication)')
 
         # # Send starting message
-        # send_message(f'_CDC Streamer [{CDC_DB_NAME}]_ started')
+        # send_message(f'_CDC Streamer [{settings.STREAM_DB_NAME}]_ started')
 
     def run(self) -> None:
         thread_streamer = threading.Thread(target=self.streamer, daemon=True)  # Spawn thread to start streaming from replication slot
@@ -113,19 +87,19 @@ class LogicalReplicationStreamer:
         logger.debug('Streamer thread started...')
         try:
             # Make sure replication slot exists
-            self.cursor.execute(f'SELECT COUNT(1) FROM pg_replication_slots WHERE slot_name = \'{CDC_SLOT_NAME}\'')
+            self.cursor.execute(f'SELECT COUNT(1) FROM pg_replication_slots WHERE slot_name = \'{settings.STREAM_REPLICATION_SLOT_NAME}\'')
             if self.cursor.fetchone()[0] == 0:
-                self.cursor.create_replication_slot(CDC_SLOT_NAME, output_plugin='pgoutput')
-                logger.info(f'Replication slot created: {CDC_SLOT_NAME}')
-            self.cursor.start_replication(slot_name=CDC_SLOT_NAME, options={
+                self.cursor.create_replication_slot(settings.STREAM_REPLICATION_SLOT_NAME, output_plugin='pgoutput')
+                logger.info(f'Replication slot created: {settings.STREAM_REPLICATION_SLOT_NAME}')
+            self.cursor.start_replication(slot_name=settings.STREAM_REPLICATION_SLOT_NAME, options={
                 'proto_version': '1',
-                'publication_names': CDC_PUBL_NAME,
+                'publication_names': settings.STREAM_PUBLICATION_NAME,
             })
-            logger.debug(f'Replication started, publication name: \'{CDC_PUBL_NAME}\', replication slot name: \'{CDC_SLOT_NAME}\'')
+            logger.debug(f'Replication started, publication name: \'{settings.STREAM_PUBLICATION_NAME}\', replication slot name: \'{settings.STREAM_REPLICATION_SLOT_NAME}\'')
             self.cursor.consume_stream(self.put_message_to_queue)
         except Exception as e:
             t = traceback.format_exc()
-            send_message(f'_CDC Streamer [{CDC_DB_NAME}]_ streamer error: **{type(e)}: {e}**\n```{t}```')
+            send_message(f'_CDC Streamer [{settings.STREAM_DB_NAME}]_ streamer error: **{type(e)}: {e}**\n```{t}```')
             logger.error(f'Error in streamer thread: {e}\n{t}')
             self.exception_event.set()
             raise e
@@ -159,17 +133,17 @@ class LogicalReplicationStreamer:
                         self.latest_commit_ts = decoded_msg.transaction.commit_ts
 
                     # Close all files if it's opened for too long
-                    if (self.now - self.latest_all_file_closed_ts).total_seconds() > STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S:
-                        self.close_all_files(f'all files opened for {STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S} seconds')
+                    if (self.now - self.latest_all_file_closed_ts).total_seconds() > settings.STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S:
+                        self.close_all_files(f'all files opened for {settings.STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S} seconds')
 
                     self.latest_msg_ts = self.now
 
                 else:  # No message
                     # Close all files if no message received for too long
-                    if (self.now - self.latest_all_file_closed_ts).total_seconds() > STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S:
-                        self.close_all_files(f'no message for {STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S} seconds')
+                    if (self.now - self.latest_all_file_closed_ts).total_seconds() > settings.STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S:
+                        self.close_all_files(f'no message for {settings.STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S} seconds')
 
-                    time.sleep(STREAM_CONSUMER_POLL_INTERVAL_S)
+                    time.sleep(settings.STREAM_CONSUMER_POLL_INTERVAL_S)
 
                 if self.send_feedback:
                     if not self.latest_lsn:
@@ -185,14 +159,14 @@ class LogicalReplicationStreamer:
 
         except Exception as e:
             t = traceback.format_exc()
-            send_message(f'_CDC Streamer [{CDC_DB_NAME}]_ consumer error: **{type(e)}: {e}**\n```{t}```')
+            send_message(f'_CDC Streamer [{settings.STREAM_DB_NAME}]_ consumer error: **{type(e)}: {e}**\n```{t}```')
             logger.error(f'Error in consumer thread: {e}\n{t}')
             self.exception_event.set()
         finally:
             logger.warning('Gracefully stopped consumer thread')
 
     def write_to_file(self, decoded_msg: TransactionEvent) -> None:
-        filename = os.path.join(STREAM_OUTPUT_DIR, f'{decoded_msg.transaction.commit_ts.strftime("%Y%m%d%H%M%S%f")}-{datetime.now(tz=timezone.utc).strftime("%Y%m%d%H%M%S%f")}-{decoded_msg.table.fqn}.json')
+        filename = os.path.join(settings.STREAM_OUTPUT_DIR, f'{decoded_msg.transaction.commit_ts.strftime("%Y%m%d%H%M%S%f")}-{datetime.now(tz=timezone.utc).strftime("%Y%m%d%H%M%S%f")}-{decoded_msg.table.fqn}.json')
         dirname = os.path.dirname(filename)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
@@ -241,8 +215,8 @@ class LogicalReplicationStreamer:
         self.opened_files[decoded_msg.table.fqn].size += data_size
 
         # Close all files if this file is too big
-        if self.opened_files[decoded_msg.table.fqn].size > STREAM_FILEWRITER_MAX_FILE_SIZE_B:
-            self.close_all_files(f'table \'{decoded_msg.table.fqn}\' size exceeds {STREAM_FILEWRITER_MAX_FILE_SIZE_B} bytes')
+        if self.opened_files[decoded_msg.table.fqn].size > settings.STREAM_FILEWRITER_MAX_FILE_SIZE_B:
+            self.close_all_files(f'table \'{decoded_msg.table.fqn}\' size exceeds {settings.STREAM_FILEWRITER_MAX_FILE_SIZE_B} bytes')
 
     def close_all_files(self, reason: str) -> None:
         is_any_closed = False
@@ -253,7 +227,7 @@ class LogicalReplicationStreamer:
                 logger.info(f'Closed file \'{self.opened_files[table_name].filename}\' due to: {reason}')
 
                 # Move streamed file to upload dir
-                os.rename(self.opened_files[table_name].filename, os.path.join(UPLOAD_OUTPUT_DIR, os.path.basename(self.opened_files[table_name].filename)))
+                os.rename(self.opened_files[table_name].filename, os.path.join(settings.UPLOAD_OUTPUT_DIR, os.path.basename(self.opened_files[table_name].filename)))
 
             del self.opened_files[table_name]
 
@@ -283,13 +257,13 @@ class LogicalReplicationStreamer:
                 else:
                     empty_msg_count += 1
 
-                if (self.now - self.latest_msg_ts).total_seconds() > STREAM_NO_MESSAGE_REPORT_INTERVAL_S and (self.now - latest_no_msg_print_ts).total_seconds() > STREAM_NO_MESSAGE_REPORT_INTERVAL_S:
+                if (self.now - self.latest_msg_ts).total_seconds() > settings.STREAM_NO_MESSAGE_REPORT_INTERVAL_S and (self.now - latest_no_msg_print_ts).total_seconds() > settings.STREAM_NO_MESSAGE_REPORT_INTERVAL_S:
                     logger.warning(f'No message for {(self.now - self.latest_msg_ts).total_seconds()} seconds')
                     latest_no_msg_print_ts = self.now
                 time.sleep(1)
         except Exception as e:
             t = traceback.format_exc()
-            send_message(f'_CDC Streamer [{CDC_DB_NAME}]_ monitor error: **{type(e)}: {e}**\n```{t}```')
+            send_message(f'_CDC Streamer [{settings.STREAM_DB_NAME}]_ monitor error: **{type(e)}: {e}**\n```{t}```')
             logger.error(f'Error in monitor thread: {e}\n{t}')
             self.exception_event.set()
             raise e
@@ -299,22 +273,22 @@ class LogicalReplicationStreamer:
     def stop(self) -> None:
         self.cursor.close()
         self.conn.close()
-        logger.debug(f'Disconnected from db: {CDC_DB_NAME} (Replication)')
+        logger.debug(f'Disconnected from db: {settings.STREAM_DB_NAME} (Replication)')
 
 
 if __name__ == '__main__':
     # Create output directory if not exists
-    if not os.path.exists(STREAM_OUTPUT_DIR):
-        os.makedirs(STREAM_OUTPUT_DIR)
-        logger.info(f'Create stream output dir: {STREAM_OUTPUT_DIR}')
-    if not os.path.exists(UPLOAD_OUTPUT_DIR):
-        os.makedirs(UPLOAD_OUTPUT_DIR)
-        logger.info(f'Create upload output dir: {UPLOAD_OUTPUT_DIR}')
+    if not os.path.exists(settings.STREAM_OUTPUT_DIR):
+        os.makedirs(settings.STREAM_OUTPUT_DIR)
+        logger.info(f'Create stream output dir: {settings.STREAM_OUTPUT_DIR}')
+    if not os.path.exists(settings.UPLOAD_OUTPUT_DIR):
+        os.makedirs(settings.UPLOAD_OUTPUT_DIR)
+        logger.info(f'Create upload output dir: {settings.UPLOAD_OUTPUT_DIR}')
 
     # Clear stream output directory
-    [os.remove(file) for file in glob.glob(f'{STREAM_OUTPUT_DIR}/*.json')]
+    [os.remove(file) for file in glob.glob(f'{settings.STREAM_OUTPUT_DIR}/*.json')]
 
     # Run the streamer
     logger.info('Starting cdc streamer...')
-    streamer = LogicalReplicationStreamer(host=CDC_DB_HOST, port=CDC_DB_PORT, user=CDC_DB_USER, password=CDC_DB_PASS, database=CDC_DB_NAME)
+    streamer = LogicalReplicationStreamer(host=settings.STREAM_DB_HOST, port=settings.STREAM_DB_PORT, user=settings.STREAM_DB_USER, password=settings.STREAM_DB_PASS, database=settings.STREAM_DB_NAME)
     streamer.run()
