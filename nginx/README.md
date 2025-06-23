@@ -25,14 +25,3 @@ sudo systemctl reload nginx
 
 sudo certbot --nginx  # Select the airflow.rdxz2.site
 ```
-
-# Set up nginx for Cloudbeaver
-
-```sh
-sudo vim /etc/nginx/sites-available/cloudbeaver.rdxz2.site  # Copy the content of cloudbeaver.rdxz2.site
-sudo ln -s /etc/nginx/sites-available/cloudbeaver.rdxz2.site /etc/nginx/sites-enabled/cloudbeaver.rdxz2.site
-sudo nginx -t
-sudo systemctl reload nginx
-
-sudo certbot --nginx  # Select the cloudbeaver.rdxz2.site
-```
