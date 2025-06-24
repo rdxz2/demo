@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S: Optional[int] = 600  # If no message received for this time, close all files
 
     UPLOAD_OUTPUT_DIR: Optional[str] = f'output/{STREAM_DB_NAME}/upload'
-    UPLOAD_SA_FILENAME: str
+    UPLOAD_SA_FILENAME: Optional[str] = 'sa.json'
     UPLOAD_BQ_PROJECT_ID: str
     UPLOAD_BQ_DATASET_LOCATION: str
     UPLOAD_BQ_LOG_DATASET_PREFIX: str
