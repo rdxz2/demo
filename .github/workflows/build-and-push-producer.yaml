@@ -1,0 +1,34 @@
+name: Build and push docker image
+
+on:
+  push:
+    tags:
+      - "*" # Triggers only on version tags like 0.0.1
+
+jobs:
+  build-and-push-omfg-container:
+    runs-on: ubuntu-latest
+    steps:
+      # Configurations
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v1
+      - name: Docker login to Artifact Registry
+        run: |
+          gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin ${{ vars.AR_REPOSITORY }}
+
+      # Executions
+
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+      - name: Build docker image
+        run: |
+          cd producer
+          docker build . --tag ${{ vars.AR_REPOSITORY }}/producer
+      - name: Push docker image
+        run: |
+          docker push ${{ vars.AR_REPOSITORY }}/producer
