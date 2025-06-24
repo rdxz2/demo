@@ -5,6 +5,7 @@ import traceback
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone, timedelta
+from decimal import Decimal
 from loguru import logger
 from random import randint, uniform, choice
 from textwrap import dedent
@@ -118,13 +119,19 @@ def simulate_loan():
     try:
         # Create table
         if not __is_table_exists(pg, 'public.loan'):
+
+            # Make sure user table exists
+            while not __is_table_exists(pg, 'public.user'):
+                logger.info(f'{simulate_loan.__name__}: Wait loan table creation...')
+                sleep(10)
+
             pg.execute_query(dedent(
                 '''
                 create table public.loan (
                     id bigserial not null primary key,
                     created_at timestamptz not null default current_timestamp,
                     updated_at timestamptz not null default current_timestamp,
-                    user_id varchar(20) not null,
+                    user_id int not null references public.user(id),
                     product_id smallint not null,
                     interest_rate int not null,
                     amount decimal(10, 2) not null,
@@ -141,11 +148,12 @@ def simulate_loan():
 
         # Infinitely run
         while not __STOP_EVENT.is_set():
-            user_id = pg.execute_query('select id from public.user where is_active = %s order by random() limit 1', (True, )).fetchone()
-            if user_id is not None:
+            row = pg.execute_query('select id from public.user where is_active = %s and last_login is not null order by random() limit 1', (True, )).fetchone()
+            if row is not None:
+                user_id = row[0]
                 amount = round(uniform(10.0, 10000.0), 2)
                 interest_rate = randint(1, 10)
-                interest = amount * interest_rate
+                interest = amount * interest_rate / 100
                 duration = choice(__LOAN_DURATION_CHOICE)
                 first_due_date = datetime.now(timezone.utc).date()
                 last_due_date = first_due_date + timedelta(days=duration)
@@ -187,11 +195,11 @@ def simulate_repayment():
 
             # Make sure loan table exists
             while not __is_table_exists(pg, 'public.loan'):
-                logger.add(f'{simulate_repayment.__name__}: Wait loan table creation...')
+                logger.info(f'{simulate_repayment.__name__}: Wait loan table creation...')
                 sleep(10)
 
             pg.execute_query(dedent(
-                f'''
+                '''
                 create table public.repayment (
                     id serial not null primary key,
                     created_at timestamptz not null default current_timestamp,
@@ -211,34 +219,35 @@ def simulate_repayment():
             row = pg.execute_query(dedent(
                 '''
                 select l.id
-                    , (l.amount + l.interest) as total
-                    , (l.amount + l.interest) - sum(r.amount) as outstanding
+                    , l.amount + l.interest as total_amount
+                    , sum(coalesce(r.amount, 0)) as paid_amount
                 from public.loan l
-                join public.repayment r on r.loan_id = l.id
+                left join public.repayment r on r.loan_id = l.id
                 where l.is_paid_off = %s
-                    and l.created_at != current_timestamp::date
-                group by l.id, l.amount, l.interest
+                    and l.created_at <= current_timestamp - interval '1 hour'
+                group by 1, 2
                 order by random()
                 limit 1
                 '''
             ), (False, )).fetchone()
             if row is not None:
-                loan_id, total, outstanding = row
+                loan_id, total_amount, paid_amount = row
+                outstanding_amount = total_amount - paid_amount
                 repayment_amount = 0
                 probability = randint(0, 100)
                 if 0 <= probability <= 80:
                     # 80% full repayment
-                    repayment_amount = outstanding
+                    repayment_amount = outstanding_amount
                 elif 80 <= probability <= 100:
                     # 20% partial payment
-                    repayment_amount = outstanding - min(outstanding, uniform(0.01, outstanding))
+                    repayment_amount = outstanding_amount - Decimal(min(outstanding_amount, uniform(0.0, float(outstanding_amount))))
                 else:
                     raise ValueError('Probability out of range!')
                 id = pg.execute_query('insert into public.repayment (loan_id, amount) values (%s, %s) returning id', (loan_id, repayment_amount)).fetchone()[0]
 
                 # Loan paid off
-                if total == outstanding + repayment_amount:
-                    pg.execute_query('update public.loan set updated_at = current_timestamp, is_paid_off = %s where loan_id = %s', (True, loan_id))
+                if paid_amount + repayment_amount == total_amount:
+                    pg.execute_query('update public.loan set updated_at = current_timestamp, is_paid_off = %s where id = %s', (True, loan_id))
                     logger.info(f'{simulate_repayment.__name__}: Paid off {loan_id}')
 
                 logger.info(f'{simulate_repayment.__name__}: Create {id}')
