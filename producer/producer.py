@@ -25,12 +25,12 @@ __LOAN_DURATION_CHOICE = [n * 30 for n in range(1, 12)]  # 1 ~ 12 months
 __STOP_EVENT = threading.Event()
 
 
-def __random_sleep():
+def __random_sleep(start: int = 10, stop: int = 120):
     """
-    Just a random sleep time
+    Just randomly sleep between ranges
     """
 
-    sleep(randint(10, 120))
+    sleep(randint(start, stop))
 
 
 def __is_table_exists(pg: PG, table_name: str):
@@ -99,7 +99,7 @@ def simulate_user():
             else:
                 raise ValueError('Probability out of range!')
 
-            __random_sleep()
+            __random_sleep(600, 1200)
 
         logger.warning(f'{simulate_user.__name__}: Gracefully stopping')
     except Exception as e:
@@ -172,7 +172,7 @@ def simulate_loan():
             else:
                 logger.warning(f'{simulate_loan.__name__}: Noop')
 
-            __random_sleep()
+            __random_sleep(10, 60)
 
         logger.warning(f'{simulate_loan.__name__}: Gracefully stopping')
     except Exception as e:
@@ -254,7 +254,7 @@ def simulate_repayment():
             else:
                 logger.warning(f'{simulate_repayment.__name__}: Noop')
 
-            __random_sleep()
+            __random_sleep(5, 10)
 
         logger.warning(f'{simulate_repayment.__name__}: Gracefully stopping')
     except Exception as e:
