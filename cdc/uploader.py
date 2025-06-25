@@ -16,6 +16,7 @@ from google.cloud import bigquery, bigquery_storage_v1
 from google.cloud.bigquery_storage_v1 import types, writer
 from google.protobuf import descriptor_pb2
 from loguru import logger
+from textwrap import dedent
 from typing import Any
 
 from common import send_message
@@ -28,6 +29,7 @@ logger.add(os.path.join(settings.LOG_DIR, f'{os.path.basename(__file__)}.log'), 
 
 PROTO_OUTPUT_DIR = os.path.join('output', settings.STREAM_DB_NAME, 'proto')  # This must use the current directory because proto generation will throw error without --proto-path parameter
 
+META_PARTITION_COLUMN = '__tx_commit_ts'
 META_PG_COLUMNS = [
     PgColumn(pk=False, name='__m_op', dtype='varchar', bq_dtype='STRING', proto_dtype='string'),
     PgColumn(pk=False, name='__m_ord', dtype='bigint', bq_dtype='INT64', proto_dtype='int64'),
@@ -84,7 +86,8 @@ class Uploader:
 
         # Get existing table columns
         self.map__bq_table_fqn__bq_table: dict[str, BqTable] = {}  # { fqn: table}
-        results = self.bq_client.query_and_wait(
+        # TODO: do not use column_name NOT LIKE '__%' because there's possibility of postgresql table contains column name starting with '__'
+        results = self.bq_client.query_and_wait(dedent(
             f'''
             SELECT CONCAT(table_catalog, '.', table_schema, '.', table_name) AS fqn
                 , column_name
@@ -92,7 +95,7 @@ class Uploader:
             FROM `{settings.UPLOAD_BQ_PROJECT_ID}.{self.dataset_id_log}.INFORMATION_SCHEMA.COLUMNS`
             WHERE column_name NOT LIKE r'\_\_%'  -- Exclude metadata columns
             '''
-        )
+        ).strip())
         for result in results:
             if result['fqn'] not in self.map__bq_table_fqn__bq_table:
                 self.map__bq_table_fqn__bq_table[result['fqn']] = BqTable(name=result['fqn'], columns=[])
@@ -251,7 +254,7 @@ class Uploader:
         # Detect schema changes
         for filename in sorted(filenames):  # Ensure transactions order
             pg_table = json.loads(read_file_last_line(filename))['__tb']  # Get the latest transaction as it represents the latest schema
-            pg_table['columns'] = [PgColumn(**column) for column in pg_table['columns']]
+            pg_table['columns'] = [PgColumn(**column) for column in pg_table['columns']]  # Convert into python object
             pg_table = PgTable(**pg_table)
 
             # Detect new table
@@ -262,47 +265,38 @@ class Uploader:
                 )
 
                 # Create log table
+                # For cost and performance reason, partition and cluster columns are used to merge to main table
                 logger.info(f'{pg_table_fqn}: new log table: {bq_table_log_fqn}')
-                meta_columns_str = ',\n'.join([f'    `{column.name}` {column.bq_dtype}' for column in META_PG_COLUMNS])
-                columns_str = ',\n'.join([f'    `{column.name}` {column.bq_dtype}' for column in pg_table.columns])
-                self.bq_client.query_and_wait(
-                    f'''
-                    CREATE TABLE `{bq_table_log_fqn}` (
-                    {meta_columns_str},
-                    {columns_str}
-                    )
-                    PARTITION BY DATE(`__tx_commit_ts`)
-                    CLUSTER BY (`__tx_commit_ts`)
-                    OPTIONS (
-                        require_partition_filter=true
-                    );
-                    '''
+                bq_table_schema = (
+                    [bigquery.SchemaField(pg_column.name, pg_column.bq_dtype, mode='REQUIRED') for pg_column in META_PG_COLUMNS] +  # Metadata columns should not be null
+                    [bigquery.SchemaField(pg_column.name, pg_column.bq_dtype) for pg_column in pg_table.columns]
                 )
+                bq_table = bigquery.Table(bq_table_log_fqn, schema=bq_table_schema)
+                bq_table.require_partition_filter = True
+                bq_table.time_partitioning = bigquery.TimePartitioning(field=META_PARTITION_COLUMN)
+                bq_table.partitioning_type = 'DAY'
+                self.bq_client.create_table(bq_table)
                 continue
 
             # Detect new columns
-            new_columns = []
+            new_columns: list[PgColumn] = []
             existing_columns = {column.name: column.dtype for column in self.map__bq_table_fqn__bq_table[bq_table_log_fqn].columns}
             for column in pg_table.columns:
                 if column.name not in existing_columns:
-                    new_columns.append((column.name, column.dtype))
+                    new_columns.append(column)
                     self.map__bq_table_fqn__bq_table[bq_table_log_fqn].columns.append((column.name, column.bq_dtype))
             if new_columns:
                 # Alter log table
                 logger.info(f'{pg_table_fqn}: new log table column(s): {bq_table_log_fqn} -> {new_columns}')
-                add_columns_str = ',\n'.join([f'ADD COLUMN `{column_name}` {column_dtype}' for column_name, column_dtype in new_columns])
-                self.bq_client.query_and_wait(
-                    f'''
-                    ALTER TABLE `{bq_table_log_fqn}`
-                    {add_columns_str};
-                    '''
-                )
+                bq_table = self.bq_client.get_table(bq_table_log_fqn)
+                bq_table.schema = bq_table.schema[:] + [bigquery.SchemaField(pg_column.name, pg_column.bq_dtype) for pg_column in new_columns]
+                self.bq_client.update_table(bq_table)
                 continue
 
         # Generate proto file
         self.generate_and_compile_proto(pg_table)  # Here we will get the latest pg_columns read from the last file
         pb2_class = self.import_proto(pg_table)
-        logger.debug(f'{pg_table_fqn}: compiled proto file')
+        logger.debug(f'{pg_table_fqn}: proto file compiled')
 
         self.write(filenames, bq_table_log_fqn, pg_table, pb2_class)
 
@@ -315,8 +309,6 @@ class Uploader:
 
 
 if __name__ == '__main__':
-    # TODO: Stream merge without log table
-
     # Create output directory if not exists
     if not os.path.exists(PROTO_OUTPUT_DIR):
         os.makedirs(PROTO_OUTPUT_DIR)
