@@ -1,9 +1,9 @@
 {
-  "stream": {
-    "host": "localhost",
-    "port": 40000,
-    "db": "dummydb",
-    "username": "dummy",
-    "password": "12321"
+  "dummydb": {
+    "host": "{{ dummydb_host }}",
+    "port": {{ dummydb_port }},
+    "db": "{{ dummydb_name }}",
+    "username": "{{ dummydb_user }}",
+    "password": "{{ dummydb_pass }}"
   }
 }

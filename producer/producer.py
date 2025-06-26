@@ -17,7 +17,7 @@ logger.remove()
 logger.add(sys.stderr, level='INFO')
 
 __PG_CONNECTION_FILE = os.path.join(os.path.dirname(__file__), 'pg.json')
-__PG_CONNECTION_NAME = 'stream'
+__PG_CONNECTION_NAME = 'dummydb'
 __SERVICE_NAME = os.path.basename(__file__).removesuffix('.py')
 
 __LOAN_DURATION_CHOICE = [n * 30 for n in range(1, 12)]  # 1 ~ 12 months
