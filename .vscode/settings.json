@@ -1,0 +1,7 @@
+{
+  "ansible.python.interpreterPath": "/home/ubuntu/miniconda3/envs/demoansible312/bin/python",
+  "files.associations": {
+    "play-*.yaml": "ansible",
+    "main.yaml": "ansible"
+  }
+}

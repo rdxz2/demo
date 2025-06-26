@@ -1,86 +1,86 @@
-- name: Airflow - Basic setup
-  hosts: airflows
-  vars_files:
-    - vars/main.yaml
-  roles:
-    - setup
-  tags:
-    - airflow_basic
+# - name: Airflow - Basic setup
+#   hosts: airflows
+#   vars_files:
+#     - vars/main.yaml
+#   roles:
+#     - setup
+#   tags:
+#     - airflow_basic
 
-- name: Airflow - Installation
-  hosts: airflows
-  vars_files:
-    - vars/main.yaml
-    - "{{ secrets_file }}"
-  roles:
-    - airflow_install
-  tags:
-    - airflow_install
+# - name: Airflow - Installation
+#   hosts: airflows
+#   vars_files:
+#     - vars/main.yaml
+#     - "{{ secrets_file }}"
+#   roles:
+#     - airflow_install
+#   tags:
+#     - airflow_install
 
-- name: Airflow - Configuration
-  hosts: airflows
-  vars_files:
-    - vars/main.yaml
-    - "{{ secrets_file }}"
-  roles:
-    - airflow_configure
-  tags:
-    - airflow_configure
+# - name: Airflow - Configuration
+#   hosts: airflows
+#   vars_files:
+#     - vars/main.yaml
+#     - "{{ secrets_file }}"
+#   roles:
+#     - airflow_configure
+#   tags:
+#     - airflow_configure
 
-- name: CDC - Basic setup
-  hosts: cdcs
-  vars_files:
-    - vars/main.yaml
-  roles:
-    - setup
-  tags:
-    - cdc_basic
+# - name: CDC - Basic setup
+#   hosts: cdcs
+#   vars_files:
+#     - vars/main.yaml
+#   roles:
+#     - setup
+#   tags:
+#     - cdc_basic
 
-- name: CDC - Installation
-  hosts: cdcs
-  vars_files:
-    - vars/main.yaml
-    - "{{ secrets_file }}"
-  roles:
-    - cdc_install
-  tags:
-    - cdc_install
+# - name: CDC - Installation
+#   hosts: cdcs
+#   vars_files:
+#     - vars/main.yaml
+#     - "{{ secrets_file }}"
+#   roles:
+#     - cdc_install
+#   tags:
+#     - cdc_install
 
-- name: CDC - Configuration
-  hosts: cdcs
-  vars_files:
-    - vars/main.yaml
-    - "{{ secrets_file }}"
-  roles:
-    - cdc_configure
-  tags:
-    - cdc_configure
+# - name: CDC - Configuration
+#   hosts: cdcs
+#   vars_files:
+#     - vars/main.yaml
+#     - "{{ secrets_file }}"
+#   roles:
+#     - cdc_configure
+#   tags:
+#     - cdc_configure
 
-- name: Metabase - Basic setup
-  hosts: metabases
-  vars_files:
-    - vars/main.yaml
-  roles:
-    - setup
-  tags:
-    - metabase_basic
+# - name: Metabase - Basic setup
+#   hosts: metabases
+#   vars_files:
+#     - vars/main.yaml
+#   roles:
+#     - setup
+#   tags:
+#     - metabase_basic
 
-- name: Metabase - Installation
-  hosts: metabases
-  vars_files:
-    - vars/main.yaml
-    - "{{ secrets_file }}"
-  roles:
-    - metabase_install
-  tags:
-    - metabase_install
+# - name: Metabase - Installation
+#   hosts: metabases
+#   vars_files:
+#     - vars/main.yaml
+#     - "{{ secrets_file }}"
+#   roles:
+#     - metabase_install
+#   tags:
+#     - metabase_install
 
-- name: Metabase - Configuration
-  hosts: metabases
-  vars_files:
-    - vars/main.yaml
-    - "{{ secrets_file }}"
-  roles:
-    - metabase_configure
-  tags:
-    - metabase_configure
+# - name: Metabase - Configuration
+#   hosts: metabases
+#   vars_files:
+#     - vars/main.yaml
+#     - "{{ secrets_file }}"
+#   roles:
+#     - metabase_configure
+#   tags:
+#     - metabase_configure

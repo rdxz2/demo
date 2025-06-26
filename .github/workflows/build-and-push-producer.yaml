@@ -2,8 +2,12 @@ name: Build and push docker image
 
 on:
   push:
-    tags:
-      - "*" # Triggers only on version tags like 0.0.1
+    branches:
+      - "*"
+    # tags:
+    #   - "*" # Triggers only on version tags like 0.0.1
+    paths:
+      - producer/**
 
 jobs:
   build-and-push-omfg-container:

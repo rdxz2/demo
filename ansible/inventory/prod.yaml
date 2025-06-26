@@ -1,9 +1,11 @@
 all:
   # Global variables in environment level
   vars:
-    git_branch: master
+    docker_repository_host: asia-southeast2-docker.pkg.dev
+    docker_repository_project_id: ageless-aura-462704-t4
+    docker_repository_name: demo
 
-    gcp_project_id: xz2-demo
+    gcp_project_id: ageless-aura-462704-t4
     gcp_region: asia-southeast2
 
     gcs_bucket: xz2-demo
@@ -15,6 +17,16 @@ all:
     cdc_bq_log_dataset_prefix: cdclog__
 
   hosts:
+    producers:
+      ansible_host: 10.0.0.100
+      ansible_user: ubuntu
+
+      dummydb_host: 10.0.0.100
+      dummydb_port: 5432
+      dummydb_name: dummydb
+      dummydb_user: dummy
+      dummydb_pass: "{{ secret__dummydb_pass }}"
+
     airflows:
       ansible_host: 10.0.0.5
       ansible_user: ubuntu

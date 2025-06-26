@@ -1,0 +1,10 @@
+- name: Copy PG connection file
+  ansible.builtin.template:
+    src: pg.json.j2
+    dest: "{{ airflow_home_dir }}/pg.json"
+    mode: "0600"
+
+- name: Pull docker image
+  community.docker.docker_image:
+    name: "{{ docker_repository_host }}/{{ docker_repository_project_id }}/{{ docker_repository_name }}/producer:{{  }}"
+    source: pull

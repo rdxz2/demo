@@ -9,7 +9,7 @@ venv_dir: "{{ home_dir }}/venv"
 repo_dir: "{{ home_dir }}/demo"
 
 sa_dir: "{{ home_dir }}/sa"
-sa_airflow_key: sa-xz2-demo-airflow
-sa_airflow_filename: "{{ sa_dir }}/sa-xz2-demo-airflow.json"
-sa_cdc_key: sa-xz2-demo-cdc
-sa_cdc_filename: "{{ sa_dir }}/sa-xz2-demo-cdc.json"
+sa_airflow_key: sa-xz2-demo-airflow # Secret manager key name
+sa_airflow_filename: "{{ sa_dir }}/sa-airflow.json"
+sa_cdc_key: sa-xz2-demo-cdc # Secret manager key name
+sa_cdc_filename: "{{ sa_dir }}/sa-cdc.json"
