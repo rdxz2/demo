@@ -6,10 +6,18 @@ home_dir: /home/ubuntu
 
 python_version: 3.12
 venv_dir: "{{ home_dir }}/venv"
-repo_dir: "{{ home_dir }}/demo"
-
 sa_dir: "{{ home_dir }}/sa"
-sa_airflow_key: sa-xz2-demo-airflow # Secret manager key name
-sa_airflow_filename: "{{ sa_dir }}/sa-airflow.json"
-sa_cdc_key: sa-xz2-demo-cdc # Secret manager key name
-sa_cdc_filename: "{{ sa_dir }}/sa-cdc.json"
+
+# Producer configs
+
+home_dir_producer: "{{ home_dir }}/producer"
+
+# # CDC configs
+
+# sa_cdc_key: sa-xz2-demo-cdc # Secret manager key name
+# sa_cdc_filename: "{{ sa_dir }}/sa-cdc.json"
+
+# # Airflow configs
+
+# sa_airflow_key: sa-xz2-demo-airflow # Secret manager key name
+# sa_airflow_filename: "{{ sa_dir }}/sa-airflow.json"

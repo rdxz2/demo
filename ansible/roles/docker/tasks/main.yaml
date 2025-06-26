@@ -1,60 +1,30 @@
 # Installation
 
-- name: Install aptitude
+- name: Install Docker
   ansible.builtin.apt:
-    name: aptitude
-    state: latest
-    update_cache: true
-
-- name: Install required system packages
-  ansible.builtin.apt:
-    pkg:
-      - apt-transport-https
-      - ca-certificates
-      - curl
-      - software-properties-common
-      - python3-pip
-      - virtualenv
-      - python3-setuptools
-    state: latest
-    update_cache: true
-
-- name: Add Docker GPG apt key
-  ansible.builtin.apt_key:
-    url: https://download.docker.com/linux/ubuntu/gpg
+    name: docker.io
     state: present
-
-- name: Add Docker repository
-  ansible.builtin.apt_repository:
-    repo: deb https://download.docker.com/linux/ubuntu focal stable
-    state: present
-
-- name: Update apt and install docker-ce
-  ansible.builtin.apt:
-    name: docker-ce
-    state: latest
     update_cache: true
 
-- name: Install Docker module for Python
-  ansible.builtin.pip:
-    name: docker
-
-# Configure
-
-- name: Configure Docker to use GCE credential helper
-  ansible.builtin.copy:
-    dest: /etc/docker/daemon.json
-    content: |
-      {
-        "credHelpers": {
-          "{{ docker_repository_host }}": "gcr"
-        }
-      }
-    mode: "0600"
-  notify: Restart Docker
-
-- name: Restart Docker
+- name: Ensure Docker service is running
   ansible.builtin.systemd:
     name: docker
-    state: restarted
-  listen: Restart Docker
+    state: started
+    enabled: true
+
+- name: Ensure docker group exists
+  ansible.builtin.group:
+    name: docker
+    state: present
+
+- name: Add current user to docker group
+  ansible.builtin.group:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: true
+
+- name: Authenticate Docker with Artifact Registry
+  ansible.builtin.shell: |
+    gcloud auth configure-docker {{ docker_repository_host }} --quiet
+  environment:
+    CLOUDSDK_CORE_PROJECT: "{{ gcp_project_id }}"

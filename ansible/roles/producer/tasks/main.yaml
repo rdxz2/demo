@@ -1,10 +1,22 @@
 - name: Copy PG connection file
   ansible.builtin.template:
     src: pg.json.j2
-    dest: "{{ airflow_home_dir }}/pg.json"
+    dest: "{{ home_dir_producer }}/pg.json"
     mode: "0600"
 
 - name: Pull docker image
   community.docker.docker_image:
-    name: "{{ docker_repository_host }}/{{ docker_repository_project_id }}/{{ docker_repository_name }}/producer:{{  }}"
+    name: "{{ docker_repository_host }}/{{ docker_repository_project_id }}/{{ docker_repository_name }}/producer"
+    tag: latest
     source: pull
+
+- name: Run docker image
+  community.docker.docker_container:
+    name: demo-producer
+    image: "{{ docker_repository_host }}/{{ docker_repository_project_id }}/{{ docker_repository_name }}/producer:latest"
+    restart_policy: unless-stopped
+    volumes:
+      - "{{ home_dir_producer }}/pg.json:/app/pg.json"
+    state: started
+    detach: true
+    recreate: true

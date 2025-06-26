@@ -1,11 +1,11 @@
-- name: Producer - Basic setup
+- name: Producer - Basic
   hosts: producers
   vars_files:
     - vars/main.yaml
   roles:
     - docker
   tags:
-    - producer_basic
+    - basic
 
 - name: Producer
   hosts: producers

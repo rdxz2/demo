@@ -153,9 +153,9 @@ select pg_create_logical_replication_slot('repl_metabasedb', 'pgoutput');  -- Na
 # Running container
 
 ```sh
-docker run -itd --name=demo-producer -v /home/ubuntu/repos/demo/producer/pg.json:/app/pg.json --network demo demo-producer:0.0.1
-docker run -itd --name=demo-streamer -v /home/ubuntu/repos/demo/cdc/outputs:/app/outputs -v /home/ubuntu/repos/demo/cdc/logs:/app/logs -v /home/ubuntu/repos/demo/cdc/ageless-aura-462704-t4-a13ab9de1b8a-cdc.json:/app/sa.json -v /home/ubuntu/repos/demo/cdc/.env.dummydb:/app/.env --network demo demo-streamer:0.0.1
-docker run -itd --name=demo-uploader -v /home/ubuntu/repos/demo/cdc/outputs:/app/outputs -v /home/ubuntu/repos/demo/cdc/logs:/app/logs -v /home/ubuntu/repos/demo/cdc/ageless-aura-462704-t4-a13ab9de1b8a-cdc.json:/app/sa.json -v /home/ubuntu/repos/demo/cdc/.env.dummydb:/app/.env --network demo demo-uploader:0.0.1
+docker run -d --name=demo-producer -v /home/ubuntu/repos/demo/producer/pg.json:/app/pg.json --network demo demo-producer:0.0.1
+docker run -d --name=demo-streamer -v /home/ubuntu/repos/demo/cdc/outputs:/app/outputs -v /home/ubuntu/repos/demo/cdc/logs:/app/logs -v /home/ubuntu/repos/demo/cdc/ageless-aura-462704-t4-a13ab9de1b8a-cdc.json:/app/sa.json -v /home/ubuntu/repos/demo/cdc/.env.dummydb:/app/.env --network demo demo-streamer:0.0.1
+docker run -d --name=demo-uploader -v /home/ubuntu/repos/demo/cdc/outputs:/app/outputs -v /home/ubuntu/repos/demo/cdc/logs:/app/logs -v /home/ubuntu/repos/demo/cdc/ageless-aura-462704-t4-a13ab9de1b8a-cdc.json:/app/sa.json -v /home/ubuntu/repos/demo/cdc/.env.dummydb:/app/.env --network demo demo-uploader:0.0.1
 ```
 
 ## Setup Airflow
