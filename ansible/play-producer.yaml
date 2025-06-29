@@ -11,7 +11,7 @@
   hosts: producers
   vars_files:
     - vars/main.yaml
-    - "{{ secrets_file }}"
+    - "{{ secret_file }}"
   roles:
     - producer
   tags:
