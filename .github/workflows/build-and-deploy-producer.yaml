@@ -86,7 +86,7 @@ jobs:
 
       - name: Run Ansible Playbook
         run: |
-          ansible-playbook -e "secrets_file=ansible/vars/secrets_prod.yaml" \
+          ansible-playbook -e "secret_file=ansible/vars/secrets_prod.yaml" \
             --vault-password-file=~/vault_password \
             -i ansible/inventory/prod.yaml \
             -vv \
