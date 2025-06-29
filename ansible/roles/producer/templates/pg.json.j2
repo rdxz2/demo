@@ -1,9 +1,9 @@
 {
   "dummydb": {
-    "host": "{{  }}",
-    "port": 40000,
-    "db": "dummydb",
-    "username": "dummy",
-    "password": "12321"
+    "host": "{{ dummydb_host }}",
+    "port": {{ dummydb_port }},
+    "db": "{{ dummydb_name }}",
+    "username": "{{ dummydb_user }}",
+    "password": "{{ dummydb_pass }}"
   }
 }

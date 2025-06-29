@@ -82,7 +82,9 @@ docker network create demo
 
 ## Setup PostgreSQL database
 
-Create container
+In this project, we will do a one-time only PostgreSQL database setup, hence there is no automation process on doing this.
+
+Create container.
 
 ```sh
 docker volume create demo-pg
@@ -90,19 +92,19 @@ docker run --name demo-pg -d -p 40000:5432 -e POSTGRES_PASSWORD=12321 -v demo-pg
 docker exec -it demo-pg psql -U postgres
 ```
 
-Change WAL level into logical
+Change WAL level into logical.
 
 ```sql
 alter system set wal_level = logical;
 ```
 
-Restart container to load new config
+Restart container to load new config.
 
 ```sh
 docker restart demo-pg
 ```
 
-Verify new config loaded
+Verify new config loaded.
 
 ```sh
 docker exec -it demo-pg psql -U postgres -c "show wal_level"  # Should print logical
