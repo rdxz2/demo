@@ -89,5 +89,5 @@ jobs:
           ansible-playbook -e "secrets_file=ansible/vars/secrets_prod.yaml" \
             --vault-password-file=~/vault_password \
             -i ansible/inventory/prod.yaml \
-            -vvvv \
+            -vv \
             ansible/play-producer.yaml
