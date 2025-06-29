@@ -63,6 +63,13 @@ jobs:
         run: |
           ansible-galaxy collection install -r ansible/requirements.yaml
 
+      - name: Setup Ansible vault password file
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          echo "$ANSIBLE_VAULT_PASSWORD" > vault_password
+          chmod 600 vault_password
+
       - name: Setup SSH credentials for IAP tunneling
         env:
           SSH_PRIVATE_KEY: ${{ secrets.GCP_SSH_SECRET_KEY }}
@@ -76,4 +83,8 @@ jobs:
 
       - name: Run Ansible Playbook
         run: |
-          ansible-playbook -i ansible/inventory/prod.yaml ansible/play-producer.yaml
+          ansible-playbook -e "secrets_file=ansible/vars/secrets_prod.yaml" \
+            --vault-password-file=vault_password \
+            -i ansible/inventory/prod.yaml \
+            -vv \
+            ansible/play-producer.yaml --secrets-file
