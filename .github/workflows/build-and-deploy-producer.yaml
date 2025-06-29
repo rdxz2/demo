@@ -15,6 +15,9 @@ jobs:
     steps:
       # Configuration
 
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
@@ -26,9 +29,6 @@ jobs:
       - name: Docker login to Artifact Registry
         run: |
           gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin ${{ vars.AR_REPOSITORY }}
-
-      - name: Checkout repository code
-        uses: actions/checkout@v4
 
       # Execution
 
@@ -46,6 +46,9 @@ jobs:
     needs: build-and-push-container
     steps:
       # Configuration
+
+      - name: Checkout repository code
+        uses: actions/checkout@v4
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -68,9 +71,6 @@ jobs:
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 400 ~/.ssh/id_rsa
           echo -e "Host *\n  StrictHostKeyChecking no" > ~/.ssh/config
-
-      - name: Checkout repository code
-        uses: actions/checkout@v4
 
       # Execution
 
