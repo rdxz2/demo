@@ -67,8 +67,8 @@ jobs:
         env:
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
         run: |
-          echo "$ANSIBLE_VAULT_PASSWORD" > vault_password
-          chmod 600 vault_password
+          echo "$ANSIBLE_VAULT_PASSWORD" > ~/vault_password
+          chmod 600 ~/vault_password
 
       - name: Setup SSH credentials for IAP tunneling
         env:
@@ -84,7 +84,7 @@ jobs:
       - name: Run Ansible Playbook
         run: |
           ansible-playbook -e "secrets_file=ansible/vars/secrets_prod.yaml" \
-            --vault-password-file=vault_password \
+            --vault-password-file=~/vault_password \
             -i ansible/inventory/prod.yaml \
             -vv \
             ansible/play-producer.yaml
