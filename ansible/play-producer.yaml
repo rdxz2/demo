@@ -11,7 +11,7 @@
   hosts: producers
   vars_files:
     - vars/main.yaml
-    - "{{ secret_file }}"
+    - "{{ secret_file }}"  # Must be absolute / path relative to this file
   roles:
     - producer
   tags:
