@@ -1,3 +1,9 @@
+- name: Make sure producer directory exists
+  ansible.builtin.file:
+    path: "{{ home_dir_producer }}"
+    state: directory
+    mode: "0700"
+
 - name: Copy PG connection file
   ansible.builtin.template:
     src: pg.json.j2
