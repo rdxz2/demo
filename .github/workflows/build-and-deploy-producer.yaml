@@ -87,4 +87,4 @@ jobs:
             --vault-password-file=vault_password \
             -i ansible/inventory/prod.yaml \
             -vv \
-            ansible/play-producer.yaml --secrets-file
+            ansible/play-producer.yaml
