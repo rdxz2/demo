@@ -23,7 +23,7 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Set up gcloud CLI
+      - name: Setup gcloud CLI
         uses: google-github-actions/setup-gcloud@v1
 
       - name: Docker login to Artifact Registry
@@ -54,6 +54,9 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@v1
 
       - name: Install Ansible
         run: |
