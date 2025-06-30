@@ -32,19 +32,22 @@
 
 - name: Fetch service account file
   google.cloud.gcp_secret_manager:
-    auth_kind: machineaccount
+    auth_kind: serviceaccount
+    service_account_file: "{{ sa_gha_filename }}" # Hardcoded in GHA workflow file
     name: "{{ sa_cdc_key }}"
     project: "{{ gcp_project_id }}"
     version: latest
     state: present
-  delegate_to: localhost
+  delegate_to: localhost # Run this on control node
   register: output_sa_cdc
+  no_log: true
 
 - name: Copy service account file
   ansible.builtin.copy:
     content: "{{ output_sa_cdc.payload.data | b64decode }}"
     dest: "{{ sa_cdc_filename }}"
     mode: "0400"
+  no_log: true
 
 - name: Pull streamer docker image
   community.docker.docker_image:
@@ -64,10 +67,10 @@
     image: "{{ docker_repository_host }}/{{ docker_repository_project_id }}/{{ docker_repository_name }}/cdc-streamer:latest"
     restart_policy: unless-stopped
     volumes:
-      - "{{ home_dir_cdc }}/outputs:/app/outputs "
-      - "{{ home_dir_cdc }}/logs:/app/logs "
-      - "{{ sa_cdc_filename }}:/app/sa.json "
-      - "{{ home_dir_cdc }}/.env.{{ item }}:/app/.env "
+      - "{{ home_dir_cdc }}/outputs:/app/outputs"
+      - "{{ home_dir_cdc }}/logs:/app/logs"
+      - "{{ sa_cdc_filename }}:/app/sa.json"
+      - "{{ home_dir_cdc }}/.env.{{ item }}:/app/.env"
     state: started
     detach: true
     recreate: true
