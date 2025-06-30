@@ -82,10 +82,10 @@
     image: "{{ docker_repository_host }}/{{ docker_repository_project_id }}/{{ docker_repository_name }}/cdc-uploader:latest"
     restart_policy: unless-stopped
     volumes:
-      - "{{ home_dir_cdc }}/outputs:/app/outputs "
-      - "{{ home_dir_cdc }}/logs:/app/logs "
-      - "{{ sa_cdc_filename }}:/app/sa.json "
-      - "{{ home_dir_cdc }}/.env.{{ item }}:/app/.env "
+      - "{{ home_dir_cdc }}/outputs:/app/outputs"
+      - "{{ home_dir_cdc }}/logs:/app/logs"
+      - "{{ sa_cdc_filename }}:/app/sa.json"
+      - "{{ home_dir_cdc }}/.env.{{ item }}:/app/.env"
     state: started
     detach: true
     recreate: true
