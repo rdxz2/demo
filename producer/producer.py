@@ -87,9 +87,12 @@ def simulate_user():
                 # Can update 1 to 5 user at a time
                 # Update the last login
                 ids = pg.execute_query(f'select id from public.user where is_active = %s order by random() limit {randint(1, 5)}', (True, )).fetchall()
-                ids = [x[0] for x in ids]
-                pg.execute_query('update public.user set updated_at = current_timestamp, last_login = current_timestamp where id = any(%s)', (ids, ))
-                logger.info(f'{simulate_user.__name__}: Update {ids}')
+                if len(ids) > 0:
+                    ids = [x[0] for x in ids]
+                    pg.execute_query('update public.user set updated_at = current_timestamp, last_login = current_timestamp where id = any(%s)', (ids, ))
+                    logger.info(f'{simulate_user.__name__}: Update {ids}')
+                else:
+                    logger.info(f'{simulate_user.__name__}: Noop')
             elif 99 <= probability <= 100:
                 # 1% chance soft-delete user
                 id = pg.execute_query('select id from public.user where is_active = %s limit 1', (True, )).fetchone()[0]
