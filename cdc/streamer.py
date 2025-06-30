@@ -35,7 +35,7 @@ class LogicalReplicationStreamer:
     Note that we are referring "database message" as the actual transaction happened inside the database.
     """
 
-    def __init__(self, host: str, port: str, user: str, password: str, database: str, application_name: str = f'cdc-streamer-{settings.STREAM_DB_NAME}-{generate_random_string(alphanum=True)}', **kwargs) -> None:
+    def __init__(self, host: str, port: str, user: str, password: str, database: str, application_name: str = f'cdc-streamer-{settings.STREAMER_DB_NAME}-{generate_random_string(alphanum=True)}', **kwargs) -> None:
         self.dsn = psycopg2.extensions.make_dsn(host=host, port=port, user=user, password=password, database=database, application_name=application_name, **kwargs)
 
         self.decoder = Decoder(self.dsn)
@@ -57,7 +57,7 @@ class LogicalReplicationStreamer:
 
         self.conn = psycopg2.connect(self.dsn, connection_factory=psycopg2.extras.LogicalReplicationConnection)
         self.cursor = self.conn.cursor(cursor_factory=psycopg2.extras.ReplicationCursor)
-        logger.debug(f'Connected to db: {settings.STREAM_DB_NAME} (Replication)')
+        logger.debug(f'Connected to db: {settings.STREAMER_DB_NAME} (Replication)')
 
         # # Send starting message
         # send_message(f'_CDC Streamer [{settings.STREAM_DB_NAME}]_ started')
@@ -90,19 +90,19 @@ class LogicalReplicationStreamer:
         logger.debug('Streamer thread started...')
         try:
             # Make sure replication slot exists
-            self.cursor.execute(f'SELECT COUNT(1) FROM pg_replication_slots WHERE slot_name = \'{settings.STREAM_REPLICATION_SLOT_NAME}\'')
+            self.cursor.execute(f'SELECT COUNT(1) FROM pg_replication_slots WHERE slot_name = \'{settings.STREAMER_REPLICATION_SLOT_NAME}\'')
             if self.cursor.fetchone()[0] == 0:
-                self.cursor.create_replication_slot(settings.STREAM_REPLICATION_SLOT_NAME, output_plugin='pgoutput')
-                logger.info(f'Replication slot created: {settings.STREAM_REPLICATION_SLOT_NAME}')
-            self.cursor.start_replication(slot_name=settings.STREAM_REPLICATION_SLOT_NAME, options={
+                self.cursor.create_replication_slot(settings.STREAMER_REPLICATION_SLOT_NAME, output_plugin='pgoutput')
+                logger.info(f'Replication slot created: {settings.STREAMER_REPLICATION_SLOT_NAME}')
+            self.cursor.start_replication(slot_name=settings.STREAMER_REPLICATION_SLOT_NAME, options={
                 'proto_version': '1',
-                'publication_names': settings.STREAM_PUBLICATION_NAME,
+                'publication_names': settings.STREAMER_PUBLICATION_NAME,
             })
-            logger.debug(f'Replication started, publication name: \'{settings.STREAM_PUBLICATION_NAME}\', replication slot name: \'{settings.STREAM_REPLICATION_SLOT_NAME}\'')
+            logger.debug(f'Replication started, publication name: \'{settings.STREAMER_PUBLICATION_NAME}\', replication slot name: \'{settings.STREAMER_REPLICATION_SLOT_NAME}\'')
             self.cursor.consume_stream(self.put_message_to_queue)
         except Exception as e:
             t = traceback.format_exc()
-            send_message(f'_CDC Streamer [{settings.STREAM_DB_NAME}]_ streamer error: **{type(e)}: {e}**\n```{t}```')
+            send_message(f'_CDC Streamer [{settings.STREAMER_DB_NAME}]_ streamer error: **{type(e)}: {e}**\n```{t}```')
             logger.error(f'Error in streamer thread: {e}\n{t}')
             self.exception_event.set()
             raise e
@@ -162,7 +162,7 @@ class LogicalReplicationStreamer:
 
         except Exception as e:
             t = traceback.format_exc()
-            send_message(f'_CDC Streamer [{settings.STREAM_DB_NAME}]_ consumer error: **{type(e)}: {e}**\n```{t}```')
+            send_message(f'_CDC Streamer [{settings.STREAMER_DB_NAME}]_ consumer error: **{type(e)}: {e}**\n```{t}```')
             logger.error(f'Error in consumer thread: {e}\n{t}')
             self.exception_event.set()
         finally:
@@ -230,7 +230,7 @@ class LogicalReplicationStreamer:
                 logger.info(f'Closed file \'{self.opened_files[table_name].filename}\' due to: {reason}')
 
                 # Move streamed file to upload dir
-                os.rename(self.opened_files[table_name].filename, os.path.join(settings.UPLOAD_OUTPUT_DIR, os.path.basename(self.opened_files[table_name].filename)))
+                os.rename(self.opened_files[table_name].filename, os.path.join(settings.UPLOADER_OUTPUT_DIR, os.path.basename(self.opened_files[table_name].filename)))
 
             del self.opened_files[table_name]
 
@@ -266,7 +266,7 @@ class LogicalReplicationStreamer:
                 time.sleep(1)
         except Exception as e:
             t = traceback.format_exc()
-            send_message(f'_CDC Streamer [{settings.STREAM_DB_NAME}]_ monitor error: **{type(e)}: {e}**\n```{t}```')
+            send_message(f'_CDC Streamer [{settings.STREAMER_DB_NAME}]_ monitor error: **{type(e)}: {e}**\n```{t}```')
             logger.error(f'Error in monitor thread: {e}\n{t}')
             self.exception_event.set()
             raise e
@@ -276,7 +276,7 @@ class LogicalReplicationStreamer:
     def stop(self) -> None:
         self.cursor.close()
         self.conn.close()
-        logger.debug(f'Disconnected from db: {settings.STREAM_DB_NAME} (Replication)')
+        logger.debug(f'Disconnected from db: {settings.STREAMER_DB_NAME} (Replication)')
 
 
 if __name__ == '__main__':
@@ -284,14 +284,14 @@ if __name__ == '__main__':
     if not os.path.exists(settings.STREAM_OUTPUT_DIR):
         os.makedirs(settings.STREAM_OUTPUT_DIR)
         logger.info(f'Create stream output dir: {settings.STREAM_OUTPUT_DIR}')
-    if not os.path.exists(settings.UPLOAD_OUTPUT_DIR):
-        os.makedirs(settings.UPLOAD_OUTPUT_DIR)
-        logger.info(f'Create upload output dir: {settings.UPLOAD_OUTPUT_DIR}')
+    if not os.path.exists(settings.UPLOADER_OUTPUT_DIR):
+        os.makedirs(settings.UPLOADER_OUTPUT_DIR)
+        logger.info(f'Create upload output dir: {settings.UPLOADER_OUTPUT_DIR}')
 
     # Clear stream output directory
     [os.remove(file) for file in glob.glob(f'{settings.STREAM_OUTPUT_DIR}/*.json')]
 
     # Run the streamer
     logger.info('Starting cdc streamer...')
-    streamer = LogicalReplicationStreamer(host=settings.STREAM_DB_HOST, port=settings.STREAM_DB_PORT, user=settings.STREAM_DB_USER, password=settings.STREAM_DB_PASS, database=settings.STREAM_DB_NAME)
+    streamer = LogicalReplicationStreamer(host=settings.STREAMER_DB_HOST, port=settings.STREAMER_DB_PORT, user=settings.STREAMER_DB_USER, password=settings.STREAMER_DB_PASS, database=settings.STREAMER_DB_NAME)
     streamer.run()

@@ -1,4 +1,4 @@
-name: Build and push producer docker image
+name: Build and push CDC docker image
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     # tags:
     #   - "*" # Triggers only on version tags like 0.0.1
     paths:
-      - producer/**
+      - cdc/**
 
 jobs:
   build-and-push-container:
@@ -34,12 +34,14 @@ jobs:
 
       - name: Build docker image
         run: |
-          cd producer
-          docker build -t ${{ vars.AR_REPOSITORY }}/producer .
+          cd cdc
+          docker build -t ${{ vars.AR_REPOSITORY }}/cdc-streamer -f Dockerfile.streamer .
+          docker build -t ${{ vars.AR_REPOSITORY }}/cdc-uploader -f Dockerfile.uploader .
 
       - name: Push docker image
         run: |
-          docker push ${{ vars.AR_REPOSITORY }}/producer
+          docker push ${{ vars.AR_REPOSITORY }}/cdc-streamer
+          docker push ${{ vars.AR_REPOSITORY }}/cdc-uploader
 
   ansible-deploy:
     runs-on: ubuntu-latest
@@ -90,6 +92,6 @@ jobs:
           ansible-playbook -e "secret_file=vars/secrets_prod.yaml" \
             --vault-password-file=~/vault_password \
             -i ansible/inventory/prod.yaml \
-            --tags "basic,producer" \
+            --tags "basic,cdc" \
             -v \
             ansible/play.yaml

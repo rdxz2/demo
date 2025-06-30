@@ -27,7 +27,7 @@ if settings.DEBUG == 1:
     logging.basicConfig(level=logging.DEBUG)
 logger.add(os.path.join(settings.LOG_DIR, f'{os.path.basename(__file__)}.log'), rotation='00:00', retention='7 days', level='INFO')
 
-PROTO_OUTPUT_DIR = os.path.join('output', settings.STREAM_DB_NAME, 'proto')  # This must use the current directory because proto generation will throw error without --proto-path parameter
+PROTO_OUTPUT_DIR = os.path.join('output', settings.STREAMER_DB_NAME, 'proto')  # This must use the current directory because proto generation will throw error without --proto-path parameter
 
 META_PARTITION_COLUMN = '__tx_commit_ts'
 META_PG_COLUMNS = [
@@ -67,20 +67,20 @@ class Uploader:
     """
 
     def __init__(self) -> None:
-        self.bq_client = bigquery.Client.from_service_account_json(settings.UPLOAD_SA_FILENAME)
-        self.write_client = bigquery_storage_v1.BigQueryWriteClient.from_service_account_json(settings.UPLOAD_SA_FILENAME)
-        self.dataset_id_log = f'{settings.UPLOAD_BQ_LOG_DATASET_PREFIX}{settings.STREAM_DB_NAME}'
-        self.dataset_id_main = settings.STREAM_DB_NAME
+        self.bq_client = bigquery.Client.from_service_account_json(settings.UPLOADER_SA_FILENAME)
+        self.write_client = bigquery_storage_v1.BigQueryWriteClient.from_service_account_json(settings.UPLOADER_SA_FILENAME)
+        self.dataset_id_log = f'{settings.UPLOADER_BQ_LOG_DATASET_PREFIX}{settings.STREAMER_DB_NAME}'
+        self.dataset_id_main = settings.STREAMER_DB_NAME
         # self.append_rows_streams: dict[str, writer.AppendRowsStream] = {}
         logger.debug(f'Connected to BQ: {self.bq_client.project}, Target dataset: {self.dataset_id_log}')
 
         # Create dataset if not exists
-        dataset_fqn_log = f'{settings.UPLOAD_BQ_PROJECT_ID}.{self.dataset_id_log}'
+        dataset_fqn_log = f'{settings.UPLOADER_BQ_PROJECT_ID}.{self.dataset_id_log}'
         try:
             self.bq_client.get_dataset(dataset_fqn_log)
         except NotFound:
             dataset = bigquery.Dataset(dataset_fqn_log)
-            dataset.location = settings.UPLOAD_BQ_DATASET_LOCATION
+            dataset.location = settings.UPLOADER_BQ_DATASET_LOCATION
             self.bq_client.create_dataset(dataset)
             logger.info(f'Created dataset: {dataset_fqn_log}')
 
@@ -92,7 +92,7 @@ class Uploader:
             SELECT CONCAT(table_catalog, '.', table_schema, '.', table_name) AS fqn
                 , column_name
                 , data_type AS dtype
-            FROM `{settings.UPLOAD_BQ_PROJECT_ID}.{self.dataset_id_log}.INFORMATION_SCHEMA.COLUMNS`
+            FROM `{settings.UPLOADER_BQ_PROJECT_ID}.{self.dataset_id_log}.INFORMATION_SCHEMA.COLUMNS`
             WHERE column_name NOT LIKE r'\_\_%'  -- Exclude metadata columns
             '''
         ).strip())
@@ -111,7 +111,7 @@ class Uploader:
         # Generate proto file
         with open(proto_filename, 'w') as f:
             f.write(f'syntax = "proto3";\n\n')
-            f.write(f'package {settings.STREAM_DB_NAME};\n\n')
+            f.write(f'package {settings.STREAMER_DB_NAME};\n\n')
             f.write(f'message {table.proto_classname} {{\n')
             for i, column in enumerate(META_PG_COLUMNS + table.columns):
                 # All columns are optional
@@ -161,14 +161,14 @@ class Uploader:
             # Serialize data
             data = pb2_class(**data).SerializeToString()
             data_size = sys.getsizeof(data)
-            if data_size > settings.UPLOAD_STREAM_CHUNK_SIZE_B:
-                raise ValueError(f'{bq_table_log_fqn}: data size {data_size} exceeds the limit {settings.UPLOAD_STREAM_CHUNK_SIZE_B} bytes')
+            if data_size > settings.UPLOADER_STREAM_CHUNK_SIZE_B:
+                raise ValueError(f'{bq_table_log_fqn}: data size {data_size} exceeds the limit {settings.UPLOADER_STREAM_CHUNK_SIZE_B} bytes')
 
             # Manage chunks
             list__proto_rows[current_chunk_no].serialized_rows.append(data)
             current_chunk_size += data_size
-            if current_chunk_size > settings.UPLOAD_STREAM_CHUNK_SIZE_B:
-                logger.debug(f'{bq_table_log_fqn}: chunk size {current_chunk_size} exceeds the limit {settings.UPLOAD_STREAM_CHUNK_SIZE_B} bytes')
+            if current_chunk_size > settings.UPLOADER_STREAM_CHUNK_SIZE_B:
+                logger.debug(f'{bq_table_log_fqn}: chunk size {current_chunk_size} exceeds the limit {settings.UPLOADER_STREAM_CHUNK_SIZE_B} bytes')
                 current_chunk_no += 1
                 current_chunk_size = 0
                 list__proto_rows.append(types.ProtoRows())
@@ -249,7 +249,7 @@ class Uploader:
 
         pg_table_db, pg_table_schema, pg_table_name = pg_table_fqn.split('.')
 
-        bq_table_log_fqn = f'{settings.UPLOAD_BQ_PROJECT_ID}.{self.dataset_id_log}.{pg_table_schema}__{pg_table_name}'
+        bq_table_log_fqn = f'{settings.UPLOADER_BQ_PROJECT_ID}.{self.dataset_id_log}.{pg_table_schema}__{pg_table_name}'
 
         # Detect schema changes
         for filename in sorted(filenames):  # Ensure transactions order
@@ -314,14 +314,14 @@ if __name__ == '__main__':
         os.makedirs(PROTO_OUTPUT_DIR)
         logger.info(f'Create proto output dir: {PROTO_OUTPUT_DIR}')
 
-    thread_pool_executor = ThreadPoolExecutor(max_workers=settings.UPLOAD_THREADS)
+    thread_pool_executor = ThreadPoolExecutor(max_workers=settings.UPLOADER_THREADS)
     logger.info('Starting cdc uploader...')
     uploader = Uploader()
     latest_file_ts = datetime.now(timezone.utc)
     latest_no_file_print_ts = datetime.now(timezone.utc)
-    logger.info(f'Listening to folder: {settings.UPLOAD_OUTPUT_DIR}')
+    logger.info(f'Listening to folder: {settings.UPLOADER_OUTPUT_DIR}')
     while True:
-        if filenames := glob.glob(f'{settings.UPLOAD_OUTPUT_DIR}/*.json'):
+        if filenames := glob.glob(f'{settings.UPLOADER_OUTPUT_DIR}/*.json'):
 
             # Group by table
             grouped_filenames: dict[str, set[str]] = {}
@@ -340,14 +340,14 @@ if __name__ == '__main__':
                 except Exception as e:
                     t = traceback.format_exc()
                     logger.error(f'Error processing table: {pg_table_fqn}, files: {filenames}\nTraceback:\n{t}')
-                    send_message(f'_CDC Uploader [{settings.STREAM_DB_NAME}]_ error: **{e}**\nTable: **{pg_table_fqn}**\nFiles:\n```{filenames}```Traceback:\n```{t}```')
+                    send_message(f'_CDC Uploader [{settings.STREAMER_DB_NAME}]_ error: **{e}**\nTable: **{pg_table_fqn}**\nFiles:\n```{filenames}```Traceback:\n```{t}```')
                     raise e
 
             latest_file_ts = datetime.now(timezone.utc)
         else:
-            time.sleep(settings.UPLOAD_FILE_POLL_INTERVAL_S)
+            time.sleep(settings.UPLOADER_FILE_POLL_INTERVAL_S)
 
             now = datetime.now(timezone.utc)
-            if (now - latest_file_ts).total_seconds() > settings.UPLOAD_NO_FILE_REPORT_INTERVAL_S and (now - latest_no_file_print_ts).total_seconds() > settings.UPLOAD_NO_FILE_REPORT_INTERVAL_S:
+            if (now - latest_file_ts).total_seconds() > settings.UPLOADER_NO_FILE_REPORT_INTERVAL_S and (now - latest_no_file_print_ts).total_seconds() > settings.UPLOADER_NO_FILE_REPORT_INTERVAL_S:
                 logger.warning(f'No file for {(now - latest_file_ts).total_seconds()} seconds')
                 latest_no_file_print_ts = now

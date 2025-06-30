@@ -16,7 +16,7 @@
     tag: latest
     source: pull
 
-- name: Run docker image
+- name: Run docker container
   community.docker.docker_container:
     name: demo-producer
     image: "{{ docker_repository_host }}/{{ docker_repository_project_id }}/{{ docker_repository_name }}/producer:latest"

@@ -58,22 +58,21 @@ all:
     #   cdc_merger_target_conn_ids: # List of streamed databases to be merged
     #     - pg_metabase
 
-    # cdcs:
-    #   ansible_host: 10.0.0.5
-    #   ansible_user: ubuntu
+    cdcs:
+      ansible_host: 10.0.0.100
+      ansible_user: ubuntu
+      ansible_ssh_private_key_file: ~/.ssh/id_rsa
+      ansible_ssh_common_args: -o ProxyCommand="gcloud compute start-iap-tunnel demo %p --listen-on-stdin --project={{ gcp_project_id }} --zone={{ gcp_zone }}"
 
-    #   cdc_home_dir: "{{ home_dir }}/cdc"
-    #   cdc_venv_dir: "{{ venv_dir }}/cdc"
-    #   cdc_repo_dir: "{{ repo_dir }}/cdc"
-
-    #   cdc_targets:
-    #     metabase:
-    #       cdc_db_host: 10.0.0.5
-    #       cdc_db_port: 5432
-    #       cdc_db_user: repl
-    #       cdc_db_name: metabase
-    #       cdc_publ_name: metabase
-    #       cdc_slot_name: metabase
+      cdc_targets:
+        dummydb:
+          streamer_db_host: 10.0.0.100
+          streamer_db_port: 5432
+          streamer_db_user: repl
+          streamer_db_pass: "{{ secret__dummydb__streamer_db_pass }}"
+          streamer_db_name: dummydb
+          streamer_publication_name: repl
+          streamer_replication_slot_name: repl_dummydb
 
     # metabases:
     #   ansible_host: 10.0.0.5

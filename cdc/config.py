@@ -6,13 +6,13 @@ class Settings(BaseSettings):
     DEBUG: int = 0
 
     # Configure streamer (target database)
-    STREAM_DB_HOST: str
-    STREAM_DB_PORT: int
-    STREAM_DB_USER: str
-    STREAM_DB_PASS: str
-    STREAM_DB_NAME: str
-    STREAM_PUBLICATION_NAME: str
-    STREAM_REPLICATION_SLOT_NAME: str
+    STREAMER_DB_HOST: str
+    STREAMER_DB_PORT: int
+    STREAMER_DB_USER: str
+    STREAMER_DB_PASS: str
+    STREAMER_DB_NAME: str
+    STREAMER_PUBLICATION_NAME: str
+    STREAMER_REPLICATION_SLOT_NAME: str
 
     LOG_DIR: Optional[str] = None  # Set on model_post_init
 
@@ -27,15 +27,15 @@ class Settings(BaseSettings):
     STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S: Optional[int] = 600  # If no message received for this time, close all files
 
     # Configure uploader
-    UPLOAD_OUTPUT_DIR: Optional[str] = None  # Set on model_post_init
-    UPLOAD_SA_FILENAME: Optional[str] = 'sa.json'
-    UPLOAD_BQ_PROJECT_ID: str
-    UPLOAD_BQ_DATASET_LOCATION: str
-    UPLOAD_BQ_LOG_DATASET_PREFIX: str
-    UPLOAD_THREADS: Optional[int] = 10
-    UPLOAD_FILE_POLL_INTERVAL_S: Optional[int] = 1
-    UPLOAD_STREAM_CHUNK_SIZE_B: Optional[int] = 8000000
-    UPLOAD_NO_FILE_REPORT_INTERVAL_S: Optional[int] = 600
+    UPLOADER_OUTPUT_DIR: Optional[str] = None  # Set on model_post_init
+    UPLOADER_SA_FILENAME: Optional[str] = 'sa.json'
+    UPLOADER_BQ_PROJECT_ID: str
+    UPLOADER_BQ_DATASET_LOCATION: str
+    UPLOADER_BQ_LOG_DATASET_PREFIX: Optional[str] = 'log__'
+    UPLOADER_THREADS: Optional[int] = 10
+    UPLOADER_FILE_POLL_INTERVAL_S: Optional[int] = 1
+    UPLOADER_STREAM_CHUNK_SIZE_B: Optional[int] = 8000000
+    UPLOADER_NO_FILE_REPORT_INTERVAL_S: Optional[int] = 600
 
     # Configure merger
     MERGER_OUTPUT_DIR: Optional[str] = None  # Set on model_post_init
@@ -51,13 +51,13 @@ class Settings(BaseSettings):
 
     def model_post_init(self, context):
         if self.LOG_DIR is None:
-            self.LOG_DIR = f'logs/{self.STREAM_DB_NAME}'
+            self.LOG_DIR = f'logs/{self.STREAMER_DB_NAME}'
         if self.STREAM_OUTPUT_DIR is None:
-            self.STREAM_OUTPUT_DIR = f'outputs/{self.STREAM_DB_NAME}/stream'
-        if self.UPLOAD_OUTPUT_DIR is None:
-            self.UPLOAD_OUTPUT_DIR = f'outputs/{self.STREAM_DB_NAME}/upload'
+            self.STREAM_OUTPUT_DIR = f'outputs/{self.STREAMER_DB_NAME}/stream'
+        if self.UPLOADER_OUTPUT_DIR is None:
+            self.UPLOADER_OUTPUT_DIR = f'outputs/{self.STREAMER_DB_NAME}/upload'
         if self.MERGER_OUTPUT_DIR is None:
-            self.MERGER_OUTPUT_DIR = f'outputs/{self.STREAM_DB_NAME}/merge'
+            self.MERGER_OUTPUT_DIR = f'outputs/{self.STREAMER_DB_NAME}/merge'
 
         return super().model_post_init(context)
 

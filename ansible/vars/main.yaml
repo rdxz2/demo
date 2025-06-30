@@ -12,12 +12,8 @@ sa_dir: "{{ home_dir }}/sa"
 
 home_dir_producer: "{{ home_dir }}/producer"
 
-# # CDC configs
+# CDC configs
 
-# sa_cdc_key: sa-xz2-demo-cdc # Secret manager key name
-# sa_cdc_filename: "{{ sa_dir }}/sa-cdc.json"
-
-# # Airflow configs
-
-# sa_airflow_key: sa-xz2-demo-airflow # Secret manager key name
-# sa_airflow_filename: "{{ sa_dir }}/sa-airflow.json"
+home_dir_cdc: "{{ home_dir }}/cdc"
+sa_cdc_key: sa-cdc # Secret manager key name
+sa_cdc_filename: "{{ home_dir_cdc }}/sa-cdc.json"
