@@ -80,7 +80,7 @@ jobs:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
           echo "$GCP_SA_KEY" > ~/sa.json
-          chmod 400 ~/vault_password
+          chmod 400 ~/sa.json
 
       - name: Prepare Ansible vault password file
         env:
