@@ -1,4 +1,4 @@
-name: Build and push CDC docker image
+name: Build and deploy CDC
 
 on:
   push:
@@ -32,15 +32,22 @@ jobs:
 
       # Execution
 
-      - name: Build docker image
+      - name: Build streamer docker image
         run: |
           cd cdc
           docker build -t ${{ vars.AR_REPOSITORY }}/cdc-streamer -f Dockerfile.streamer .
+
+      - name: Build uploader docker image
+        run: |
+          cd cdc
           docker build -t ${{ vars.AR_REPOSITORY }}/cdc-uploader -f Dockerfile.uploader .
 
-      - name: Push docker image
+      - name: Push streamer docker image
         run: |
           docker push ${{ vars.AR_REPOSITORY }}/cdc-streamer
+
+      - name: Push uploader docker image
+        run: |
           docker push ${{ vars.AR_REPOSITORY }}/cdc-uploader
 
   ansible-deploy:
@@ -60,9 +67,9 @@ jobs:
       - name: Setup gcloud CLI
         uses: google-github-actions/setup-gcloud@v1
 
-      - name: Install Ansible
+      - name: Install packages to run Ansible
         run: |
-          sudo apt update && sudo apt install -y ansible
+          pip install -r ansible/requirements.txt
 
       - name: Install required Ansible Galaxy collections
         run: |
@@ -93,5 +100,4 @@ jobs:
             --vault-password-file=~/vault_password \
             -i ansible/inventory/prod.yaml \
             --tags "basic,cdc" \
-            -v \
             ansible/play.yaml

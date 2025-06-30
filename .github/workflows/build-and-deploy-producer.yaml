@@ -1,4 +1,4 @@
-name: Build and push producer docker image
+name: Build and deploy producer
 
 on:
   push:
@@ -91,5 +91,4 @@ jobs:
             --vault-password-file=~/vault_password \
             -i ansible/inventory/prod.yaml \
             --tags "basic,producer" \
-            -v \
             ansible/play.yaml
