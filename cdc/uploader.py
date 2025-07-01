@@ -305,6 +305,9 @@ class Uploader:
         # Remove all processed files
         [os.remove(filename) for filename in filenames]
 
+        # Write to file to notify merger
+        open(os.path.join(settings.MERGER_OUTPUT_DIR, f'{pg_table_fqn}.txt'), 'w').write(pg_table_fqn)
+
         return pg_table.fqn
 
 
@@ -313,6 +316,9 @@ if __name__ == '__main__':
     if not os.path.exists(PROTO_OUTPUT_DIR):
         os.makedirs(PROTO_OUTPUT_DIR)
         logger.info(f'Create proto output dir: {PROTO_OUTPUT_DIR}')
+    if not os.path.exists(settings.MERGER_OUTPUT_DIR):
+        os.makedirs(settings.MERGER_OUTPUT_DIR)
+        logger.info(f'Create merge output dir: {settings.MERGER_OUTPUT_DIR}')
 
     thread_pool_executor = ThreadPoolExecutor(max_workers=settings.UPLOADER_THREADS)
     logger.info('Starting cdc uploader...')

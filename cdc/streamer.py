@@ -137,14 +137,14 @@ class LogicalReplicationStreamer:
 
                     # Close all files if it's opened for too long
                     if (self.now - self.latest_all_file_closed_ts).total_seconds() > settings.STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S:
-                        self.close_all_files(f'all files opened for {settings.STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S} seconds')
+                        self.close_all_files(f'All files opened for {settings.STREAM_FILEWRITER_ALL_FILE_MAX_OPENED_TIME_S} seconds')
 
                     self.latest_msg_ts = self.now
 
                 else:  # No message
                     # Close all files if no message received for too long
                     if (self.now - self.latest_all_file_closed_ts).total_seconds() > settings.STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S:
-                        self.close_all_files(f'no message for {settings.STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S} seconds')
+                        self.close_all_files(f'No message for {settings.STREAM_FILEWRITER_NO_MESSAGE_WAIT_TIME_S} seconds')
 
                     time.sleep(settings.STREAM_CONSUMER_POLL_INTERVAL_S)
 

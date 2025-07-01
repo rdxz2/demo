@@ -133,6 +133,9 @@ create database dummydb owner dummy;
 \c dummydb
 create publication "repl" for all tables;
 select pg_create_logical_replication_slot('repl_dummydb', 'pgoutput');  -- Name must be unique across DB instance
+
+-- Create cdc schema to serve cdc merger's metadata
+create schema cdc authorization repl;
 ```
 
 ### Setup Metabase database, with replication

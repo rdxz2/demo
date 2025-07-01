@@ -39,6 +39,8 @@ class Settings(BaseSettings):
 
     # Configure merger
     MERGER_OUTPUT_DIR: Optional[str] = None  # Set on model_post_init
+    MERGER_SA_FILENAME: Optional[str] = 'sa.json'
+    MERGER_BQ_PROJECT_ID: str
 
     # # Configure PG to BQ
     # PGTOBQ_OUTPUT_DIR: str = f'outputs/{NAME}/bqtobq'
